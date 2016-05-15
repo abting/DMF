@@ -44,6 +44,7 @@ def save_to_string(electrode_num):
 def send():
     if pop_up()==True:
         global varString
+        varstring += "1002"
         print ("Sending...")
         arduino.write(varString)
         print "DONE!"
