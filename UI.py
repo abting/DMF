@@ -3,14 +3,15 @@ import Tkinter as tk
 import tkMessageBox
 import ttk
 import serial
+import tkFileDialog
+import os
 import sys
-
 
 #----------------------------------------Variables-------------------------------------------------------
 
-arduino=serial.Serial('com4', 9600)
+arduino=serial.Serial()
 varString=""
-last_entry=""
+count=0
 
 #---------------------------------------Main window-------------------------------------------------------    
 root=Tk()
@@ -33,31 +34,27 @@ extra_frame.grid(row=2,column=3, padx=10, pady=10)
 history_frame=tk.LabelFrame(root, text="Serial Monitor", labelanchor='nw')
 history_frame.grid(row=2, column=1, columnspan=2, padx=10, pady=10)
 
+save_load=tk.LabelFrame(root, text="Save&Load", labelanchor="n")
+save_load.grid(row=2, column=0, padx=10, pady=10)
 
 #----------------Function defenitions-----------------------------------------------------------------------------
 
 def save_to_string(electrode_num): 
     global varString
     varString += (electrode_num+",")
-    if electrode_num == "1000" or electrode_num == "1001" or electrode_num == "1003":
-        write("\n")
-        write( str(electrode_num)+",")
-    else:
-        write( str(electrode_num)+",")
     print "added ",electrode_num
     print varString
          
 def send():
     if pop_up()==True:
         global varString
+        varstring += "1002"
         print ("Sending...")
-        write("\n" + "Sending...")
         arduino.write(varString)
         print "DONE!"
-        write("\n" + "DONE!")
         varString=""
     
-##def delete_last_entry(self):
+##def delete(self):
 ##    global varString
 ##    varString=last_entry
 ##    print varString
@@ -74,45 +71,56 @@ def Reset():
         global varString
         varString = ""
         print "Reset!"
-        write("\n" + "Reset!")
         
 def Exit():
     if pop_up()==True:
         root.destroy()
+        
+def save():
+    f = tkFileDialog.asksaveasfile(mode='w', defaultextension=".txt")
+    if f is None: # asksaveasfile return `None` if dialog closed with "cancel".
+        return
+    f.write(varString)
+    f.close() # `()` was missing.
+    print "Sequence Saved!"
 
-def write(string):
-    text.config(state=tk.NORMAL)
-    text.insert("end", string )
-    text.see("end")
-    text.config(state=tk.DISABLED)
+def load():
+    global varString
+    f=tkFileDialog.askopenfile(mode='r', defaultextension=".txt")
+    if f is None:
+        return
+    varString=""
+    print "Loaded Sequence!"
+    while True:
+        c = f.read(1)
+        if not c:
+            break
+        varString += c
+    print varString
+    f.close()
 
-            
-#-----------------------------------Text box $ Scroll Bar-----------------------------------------------------------------        
+def how():
+    
+    f="READ_ME.txt"
+    os.system(f)
+   
+#-----------------------------------Text box------------------------------------------------------------------        
 
-#text=tk.Text(history_frame)
-textFrame=tk.Text(history_frame, state = tk.DISABLED)
-textFrame.grid(row=0, column=0,padx=10, pady=10)
-
-scrollbar = Scrollbar (textFrame)
-scrollbar.pack(side=RIGHT,fill=Y)
-
-text = Text(textFrame,wrap=WORD,yscrollcommand = scrollbar.set,state=tk.DISABLED)
-text.pack()
-
-scrollbar.config(command = text.yview)
+text=tk.Text(history_frame)
+text.grid(row=0, column=0,padx=10, pady=10)
 
 #-----------------------------------Menus-------------------------------------------------------------------
 
 menubar=Menu(root)
 #File menu
 File_menu=Menu(menubar,tearoff=0)
-File_menu.add_command(label="Open")
-File_menu.add_command(label="Save As...")
+File_menu.add_command(label="Open", command=load)
+File_menu.add_command(label="Save As...", command=save)
 File_menu.add_command(label="Exit", command=Exit)
 menubar.add_cascade(label="File",menu=File_menu)
 #Help menu
 Help_menu=Menu(menubar,tearoff=0)
-Help_menu.add_command(label="Read Me")
+Help_menu.add_command(label="Read Me", command=how)
 Help_menu.add_command(label="About")
 menubar.add_cascade(label="Help",menu=Help_menu)
 root.config(menu=menubar)
@@ -124,7 +132,6 @@ button1.grid(column=0,row=0)
 
 button2 = tk.Button(dmf_frame, text="2", command=lambda:save_to_string("2"))
 button2.grid(column=1,row=0)
-
 
 button3 = tk.Button(dmf_frame, text="3", command=lambda:save_to_string("3"))
 button3.grid(column=2,row=0)
@@ -175,7 +182,7 @@ Transformation_button.grid(row=2,column=0)
 ##Delete_button=ttk.Button(extra_frame, text="Delete", command=delete_last_entry)
 ##Delete_button.grid(row=0, column=0, sticky="nsew")
 
-Reset_button=ttk.Button(extra_frame, text="Reset", command=Reset)
+Reset_button=ttk.Button(extra_frame, text="Reset Sequence", command=Reset)
 Reset_button.grid(row=0, column=0, sticky="nsew")
 
 Send_button= ttk.Button(extra_frame,text="Send Commands", command=send)
@@ -184,13 +191,22 @@ Send_button.grid(row=1, column=0, sticky="nsew")
 END_button=ttk.Button(extra_frame, text="Quit", command=Exit)
 END_button.grid(row=2, column=0, sticky="nsew")
 
+#------------------------------------------save&load---------------------------------------------------------
+
+save_button=ttk.Button(save_load, text="Save Sequence", command=save)
+save_button.grid(row=0, column=0, sticky="nsew")
+
+load_button=ttk.Button(save_load, text="Load Sequence", command=load)
+load_button.grid(row=1, column=0, sticky="nsew")
+
 #--------------------------------------------Bindings-------------------------------------------------------
 
 root.bind('<Return>', send)
 root.bind('<Control-r>', Reset)
-#root.bind('<BackSpace>', delete_last_entry)
-#root.bind('<Control-s>', save)
-#root.bind('<Control-o>', open)
+#root.bind('<BackSpace>', delete)
+root.bind('<Control-s>', save)
+root.bind('<Control-o>', load)
+root.bind('<Control-h>', how)
 
 #-------------------------------------------------------------------------------------------------
 root.mainloop()
