@@ -9,8 +9,9 @@ import sys
 
 #----------------------------------------Variables-------------------------------------------------------
 
-arduino=serial.Serial()
+arduino=serial.Serial('com4',9600)
 varString=""
+last_entry=""
 count=0
 
 #---------------------------------------Main window-------------------------------------------------------    
@@ -42,16 +43,23 @@ save_load.grid(row=2, column=0, padx=10, pady=10)
 def save_to_string(electrode_num): 
     global varString
     varString += (electrode_num+",")
+    if electrode_num == "1000" or electrode_num == "1001" or electrode_num == "1003":
+         write("\n")
+         write( str(electrode_num)+",")
+    else:
+         write( str(electrode_num)+",")
     print "added ",electrode_num
     print varString
          
 def send():
     if pop_up()==True:
         global varString
-        varstring += "1002"
+        varString += "1002"
         print ("Sending...")
+        write("\n" + "Sending...")
         arduino.write(varString)
         print "DONE!"
+        write("\n" + "DONE!")
         varString=""
     
 ##def delete(self):
@@ -71,6 +79,7 @@ def Reset():
         global varString
         varString = ""
         print "Reset!"
+        write("\n"+"Reset!")
         
 def Exit():
     if pop_up()==True:
@@ -98,16 +107,31 @@ def load():
         varString += c
     print varString
     f.close()
+    
+def write(string):
+     text.config(state=tk.NORMAL)
+     text.insert("end", string )
+     text.see("end")
+     text.config(state=tk.DISABLED)
 
 def how():
     
     f="READ_ME.txt"
     os.system(f)
    
-#-----------------------------------Text box------------------------------------------------------------------        
+#-----------------------------------Text box $ Scroll Bar-----------------------------------------------------------------        
 
-text=tk.Text(history_frame)
-text.grid(row=0, column=0,padx=10, pady=10)
+#text=tk.Text(history_frame)
+textFrame=tk.Text(history_frame, state = tk.DISABLED)
+textFrame.grid(row=0, column=0,padx=10, pady=10)
+
+scrollbar = Scrollbar (textFrame)
+scrollbar.pack(side=RIGHT,fill=Y)
+
+text = Text(textFrame,wrap=WORD,yscrollcommand = scrollbar.set,state=tk.DISABLED)
+text.pack()
+
+scrollbar.config(command = text.yview)
 
 #-----------------------------------Menus-------------------------------------------------------------------
 
