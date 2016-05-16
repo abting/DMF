@@ -40,7 +40,7 @@ void setup()
  Wire.endTransmission();
  clearLED();
 
-Serial.begin(19200);
+Serial.begin(9600);
 
 Serial.println("Enter number");
 
@@ -59,7 +59,7 @@ void loop()
 
 
 
-  String StArray [80];    //Stores each element as a String
+  String StArray [70];    //Stores each element as a String
        //Stores each element as an int
   int count = 0;
   char * data = strtok(dataRead, ",");  //Stores first element before ","
@@ -102,7 +102,7 @@ void loop()
   
   while (!complete)
   {
-    for (int i=0;i<80;i++) //going through the array
+    for (int i=0;i<70;i++) //going through the array
     {delay(50);
       isCharacter(numArray[i]); //find out if there was a character or not
       if (isChara)
