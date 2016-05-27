@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file>DMF_Scene.jpeg</file>
+    </qresource>
+</RCC>
