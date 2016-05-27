@@ -6,18 +6,19 @@
 #include <QtWidgets>
 #include <QtGui>
 #include <QtCore>
+#include <iostream>
 
 QString to_Send = "";
 QString to_Display = "";
 int nextLineCount = 0;
 QString lineTrack = "";
+bool finished_Clicking = false;
 
 DMFgui::DMFgui(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::DMFgui)
 {
     ui->setupUi(this);
-    set_Scene();
 
     arduino_is_available = false;
     arduino_port_name = "";
@@ -197,25 +198,49 @@ void DMFgui::on_UndoButton_clicked()
 
 void DMFgui::set_Scene()
 {
-//    QImage DMF_image(":/DMF_Scene.png");
+    //loading the picture from computer
+//    QString imagePath = QFileDialog::getOpenFileName(this,
+//                                                     tr("OpenFile"),
+//                                                     "",
+//                                                     tr("JPEG(*.jpg *.jpeg);;PNG(*.png)")
+//                                                     );
 
-//    //testing the graphicsView item
-//    scene = new QGraphicsScene(this); //setting object
+    imageObject = new QImage();
+    imageObject->load(":/DMF_Scene.png");
 
-//    QGraphicsPixmapItem item(QPixmap("c:\\DMF_Scene.png"));
-//    scene->addItem(&item);
+    image = QPixmap::fromImage(*imageObject);
 
-//    ui->graphicsView->setScene(scene);
-//    scene->addPixmap(QPixmap::fromImage(DMF_image));
-//    ui->graphicsView->fitInView(scene->sceneRect(),Qt::KeepAspectRatio);
+    scene = new QGraphicsScene(this);
+    scene->addPixmap(image);
+    scene->setSceneRect(image.rect());
+    ui->graphicsView->setScene(scene);
+    ui->graphicsView->fitInView(scene->sceneRect(),Qt::KeepAspectRatio);
 
-//    QBrush redBrush(Qt::red);
-//    QBrush blueBrush(Qt::blue);
-//    QPen blackpen(Qt::black);
-//    blackpen.setWidth(6);
-//    ellipse = scene->addEllipse(10,10,100,100,blackpen,redBrush);
+}
 
-      QGraphicsPixmapItem item(QPixmap::fromImage(DMF_image));
-      scene->addItem(&item);
+void DMFgui::on_loadButton_clicked()
+{
+    set_Scene();
+}
 
+void DMFgui::on_NumberButton_clicked()
+{
+
+}
+
+void DMFgui::mousePressEvent(QMouseEvent *e)
+{
+    if (e->button() == Qt::LeftButton)
+    {
+        ui->textEdit->insertPlainText("Pressed"); //double check this, it's appearing with the line edit
+    }
+}
+
+void DMFgui::on_Voltage_SendButton_clicked()
+{
+    //read from the line edit then save as a float
+   QString voltage = ui->lineEdit->text(); //gets the text that you've entered
+
+    float to_Send = voltage.toFloat();
+    //connect to the fgen class (generate the commands from there)
 }

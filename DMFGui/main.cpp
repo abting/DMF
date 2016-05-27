@@ -1,4 +1,5 @@
 #include "dmfgui.h"
+#include "fgen.h"
 #include <QApplication>
 #include <QtSerialPort>
 #include <QSerialPortInfo>
@@ -15,12 +16,4 @@ int main(int argc, char *argv[])
     w.show();
 
     return a.exec();
-
-//    QApplication a(argc, argv);
-//    QGraphicsScene scene;
-//    QGraphicsView view(&scene);
-//    QGraphicsPixmapItem item(QPixmap("plzwork.jpg"));
-//    scene.addItem(&item);
-//    view.show();
-//    return a.exec();
 }

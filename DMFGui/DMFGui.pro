@@ -14,9 +14,11 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp\
-        dmfgui.cpp
+        dmfgui.cpp \
+    fgen.cpp
 
-HEADERS  += dmfgui.h
+HEADERS  += dmfgui.h \
+    fgen.h
 
 FORMS    += dmfgui.ui
 

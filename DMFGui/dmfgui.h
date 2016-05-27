@@ -4,6 +4,8 @@
 #include <QDialog>
 #include <QSerialPort>
 #include <QGraphicsItem>
+#include <QMouseEvent>
+#include "fgen.h"
 
 namespace Ui {
 class DMFgui;
@@ -17,6 +19,7 @@ public:
     explicit DMFgui(QWidget *parent = 0);
     ~DMFgui();
 
+    void mousePressEvent(QMouseEvent *e);
 private slots:
 
     void on_mixButton_clicked();
@@ -59,6 +62,13 @@ private slots:
 
     void set_Scene();
 
+    void on_loadButton_clicked();
+
+    void on_NumberButton_clicked();
+
+
+    void on_Voltage_SendButton_clicked();
+
 private:
     Ui::DMFgui *ui;
 
@@ -70,8 +80,9 @@ private:
     bool arduino_is_available;
 
     QGraphicsScene *scene;
-    QGraphicsEllipseItem *ellipse;
-    QGraphicsRectItem *rectangle;
+    QPixmap image;
+    QImage *imageObject;
+
 };
 
 #endif // DMFGUI_H
