@@ -16,7 +16,7 @@ public:
     FGen &operator=(const FGen &);
     ~FGen();
 
-    void sendVoltage();
+    void sendVoltage(float);
 
 private:
     QSharedDataPointer<FGenData> data;

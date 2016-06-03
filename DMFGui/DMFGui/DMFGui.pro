@@ -23,6 +23,5 @@ HEADERS  += dmfgui.h \
 FORMS    += dmfgui.ui
 
 RESOURCES += \
-    dmf_scene.qrc \
     dmf_scene_v2.qrc \
-    workplz.qrc
+    container.qrc

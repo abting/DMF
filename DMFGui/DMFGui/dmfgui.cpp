@@ -84,33 +84,27 @@ void DMFgui::save_to_String(QString electrode_num)
         ui->textEdit->insertPlainText(""+electrode_num + ","); //find a way to have this deleted one by one
     }
 }
-
 void DMFgui::on_mixButton_clicked()
 {
     save_to_String("1003");
 }
-
 void DMFgui::on_sequenceButton_clicked()
 {
     save_to_String("1000");
 }
-
 void DMFgui::on_splitButton_clicked()
 {
     save_to_String("1001");
 }
-
 void DMFgui::on_resetButton_clicked()
 {
     to_Send = "";
     ui->textEdit->clear();
 }
-
 void DMFgui::on_exitButton_clicked()
 {
 
 }
-
 void DMFgui::on_sendButton_clicked()
 {
     QMessageBox::StandardButton reply;
@@ -133,51 +127,99 @@ void DMFgui::on_button_1_clicked()
 {
      save_to_String("1");
 }
-
 void DMFgui::on_button_2_clicked()
 {
     save_to_String("2");
 }
-
 void DMFgui::on_button_3_clicked()
 {
     save_to_String("3");
 }
-
 void DMFgui::on_button_4_clicked()
 {
     save_to_String("4");
 }
-
 void DMFgui::on_button_5_clicked()
 {
     save_to_String("5");
 }
-
 void DMFgui::on_button_6_clicked()
 {
     save_to_String("6");
 }
-
 void DMFgui::on_button_7_clicked()
 {
     save_to_String("7");
 }
-
 void DMFgui::on_button_8_clicked()
 {
     save_to_String("8");
 }
-
 void DMFgui::on_button_9_clicked()
 {
     save_to_String("9");
 }
-
 void DMFgui::on_button_10_clicked()
 {
     save_to_String("10");
 }
+void DMFgui::on_button_11_clicked()
+{
+    save_to_String("11");
+}
+void DMFgui::on_button_12_clicked()
+{
+    save_to_String("12");
+}
+void DMFgui::on_button_13_clicked()
+{
+    save_to_String("13");
+}
+void DMFgui::on_button_14_clicked()
+{
+    save_to_String("14");
+}
+void DMFgui::on_button_15_clicked()
+{
+    save_to_String("15");
+}
+void DMFgui::on_button_16_clicked()
+{
+    save_to_String("16");
+}
+void DMFgui::on_button_17_clicked()
+{
+    save_to_String("17");
+}
+void DMFgui::on_button_18_clicked()
+{
+    save_to_String("18");
+}
+void DMFgui::on_button_19_clicked()
+{
+    save_to_String("19");
+}
+void DMFgui::on_button_20_clicked()
+{
+    save_to_String("20");
+}
+void DMFgui::on_container_1_clicked()
+{
+    save_to_String("21");
+}
+void DMFgui::on_container_2_clicked()
+{
+    save_to_String("22");
+}
+void DMFgui::on_container_3_clicked()
+{
+    save_to_String("23");
+}
+void DMFgui::on_container_4_clicked()
+{
+    save_to_String("24");
+}
+
 
 void DMFgui::updateDMF(QString to_Send)
 {
@@ -196,37 +238,42 @@ void DMFgui::on_UndoButton_clicked()
     ui->textEdit->undo(); //find a way to delete one by one.
 }
 
-void DMFgui::set_Scene()
-{
-    //loading the picture from computer
+//void DMFgui::set_Scene()
+//{
+
+//    //loading the picture from computer
 //    QString imagePath = QFileDialog::getOpenFileName(this,
 //                                                     tr("OpenFile"),
 //                                                     "",
 //                                                     tr("JPEG(*.jpg *.jpeg);;PNG(*.png)")
 //                                                     );
 
-    imageObject = new QImage();
-    imageObject->load(":/DMF_Scene.png");
+//    imageObject = new QImage();
+//    imageObject->load(":/DMF_Scene.png");
 
-    image = QPixmap::fromImage(*imageObject);
+//    image = QPixmap::fromImage(*imageObject);
 
-    scene = new QGraphicsScene(this);
-    scene->addPixmap(image);
-    scene->setSceneRect(image.rect());
-    ui->graphicsView->setScene(scene);
-    ui->graphicsView->fitInView(scene->sceneRect(),Qt::KeepAspectRatio);
+//    scene = new QGraphicsScene(this);
+//    scene->addPixmap(image);
+//    scene->setSceneRect(image.rect());
+//    ui->graphicsView->setScene(scene);
+//    ui->graphicsView->fitInView(scene->sceneRect(),Qt::KeepAspectRatio);
 
-}
+//    //manually creating a button
+//    QPushButton *buttonWidget = new QPushButton;
+//    buttonWidget->setMinimumWidth(200);
+//    buttonWidget->setMinimumHeight(150);
+//    buttonWidget->setStyleSheet("background-color: white");
+//    buttonWidget->setText(QString("Test"));
+//    scene->addWidget(buttonWidget)->moveBy(40,50);
+//    ui->graphicsView->setScene(scene);
+//}
 
-void DMFgui::on_loadButton_clicked()
-{
-    set_Scene();
-}
+//void DMFgui::on_loadButton_clicked()
+//{
+//    set_Scene();
+//}
 
-void DMFgui::on_NumberButton_clicked()
-{
-
-}
 
 void DMFgui::mousePressEvent(QMouseEvent *e)
 {

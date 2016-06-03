@@ -32,7 +32,7 @@ FGen::~FGen()
 
 }
 
-void FGen::sendVoltage()
+void FGen::sendVoltage(float voltage)
 {
-
+    //necessary commands to connect to the funtion generator
 }
