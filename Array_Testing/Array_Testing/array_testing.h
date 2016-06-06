@@ -19,7 +19,6 @@ public:
 
 private slots:
     void on_enterButton_clicked();
-    void display(int,int,QPushButton **);
 
 private:
     Ui::Array_testing *ui;
