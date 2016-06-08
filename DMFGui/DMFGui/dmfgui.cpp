@@ -123,103 +123,104 @@ void DMFgui::on_sendButton_clicked()
     //automatically go back if user is not sure
 }
 
-void DMFgui::on_button_1_clicked()
+void DMFgui::on_enterButton_clicked()
 {
-     save_to_String("1");
-}
-void DMFgui::on_button_2_clicked()
-{
-    save_to_String("2");
-}
-void DMFgui::on_button_3_clicked()
-{
-    save_to_String("3");
-}
-void DMFgui::on_button_4_clicked()
-{
-    save_to_String("4");
-}
-void DMFgui::on_button_5_clicked()
-{
-    save_to_String("5");
-}
-void DMFgui::on_button_6_clicked()
-{
-    save_to_String("6");
-}
-void DMFgui::on_button_7_clicked()
-{
-    save_to_String("7");
-}
-void DMFgui::on_button_8_clicked()
-{
-    save_to_String("8");
-}
-void DMFgui::on_button_9_clicked()
-{
-    save_to_String("9");
-}
-void DMFgui::on_button_10_clicked()
-{
-    save_to_String("10");
-}
-void DMFgui::on_button_11_clicked()
-{
-    save_to_String("11");
-}
-void DMFgui::on_button_12_clicked()
-{
-    save_to_String("12");
-}
-void DMFgui::on_button_13_clicked()
-{
-    save_to_String("13");
-}
-void DMFgui::on_button_14_clicked()
-{
-    save_to_String("14");
-}
-void DMFgui::on_button_15_clicked()
-{
-    save_to_String("15");
-}
-void DMFgui::on_button_16_clicked()
-{
-    save_to_String("16");
-}
-void DMFgui::on_button_17_clicked()
-{
-    save_to_String("17");
-}
-void DMFgui::on_button_18_clicked()
-{
-    save_to_String("18");
-}
-void DMFgui::on_button_19_clicked()
-{
-    save_to_String("19");
-}
-void DMFgui::on_button_20_clicked()
-{
-    save_to_String("20");
-}
-void DMFgui::on_container_1_clicked()
-{
-    save_to_String("21");
-}
-void DMFgui::on_container_2_clicked()
-{
-    save_to_String("22");
-}
-void DMFgui::on_container_3_clicked()
-{
-    save_to_String("23");
-}
-void DMFgui::on_container_4_clicked()
-{
-    save_to_String("24");
+
+    //get the texts from the textEdits
+    QString row = ui->rowEdit->text();
+    QString column = ui->columnEdit->text();
+    QGridLayout *gridLayout = new QGridLayout;
+
+    gridLayout->setHorizontalSpacing(0);
+    gridLayout->setVerticalSpacing(0);
+    gridLayout->setSpacing(0);
+
+    int drow = row.toDouble();
+    int dcolumn = column.toDouble();
+
+    //value entered is not in int, pop up an error message
+    if (row.toInt() == 0||column.toInt()==0)
+    {
+        QMessageBox::warning(this,tr("Not a number"), tr("This is not a number, try again"));
+    }
+
+    else
+    {
+        //Dynamically create an array
+        //creating new empty buttons (array of array)
+        int newrow = drow+4;
+        int newcolumn = dcolumn+4;
+
+        QPushButton **dmf_array = new QPushButton*[newrow];
+                for(int i=0;i<newrow;i++){
+                    dmf_array[i]=new QPushButton[newcolumn];
+                }
+        QLabel *empty = new QLabel(this);
+
+        //used for numbering the electrodes
+        int numberingcount = 0;
+
+        //naming each of the electrodes
+        for (int i=0;i<newrow;i++)
+        {
+            //count++;
+            for (int j=0;j<newcolumn;j++)
+            {
+                //set the edge spaces as null
+                if (i==0||i==1||j==0||j==1||i==drow+3||i==drow+2||j==dcolumn+3||j==dcolumn+2)
+                {
+                    gridLayout->addWidget(empty,i,j);
+                }
+
+                else
+                {
+                    numberingcount++;
+
+                    //inserting values into the array
+                    dmf_array[i][j].setText(QString::number(numberingcount));
+                    dmf_array[i][j].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+                    gridLayout->addWidget(&dmf_array[i][j],i,j);
+                    //QObject::connect(dmf_array[i][j],SIGNAL(clicked()),SLOT(save_to_String(dmf_array[i][j].text())));
+
+                }
+            }
+        }
+        ui->graphicsView->setLayout(gridLayout);
+
+        //display message to user to specify number of reservoirs
+        bool ok;
+        QString text = QInputDialog::getText(this,tr("Next Step"),tr("How many reservoirs do you want?"),QLineEdit::Normal,QDir::home().dirName(),&ok);
+
+//        if (text.toInt() == 0)
+//        {
+//            QMessageBox::warning(this,tr("Not a number"), tr("This is not a number, try again"));
+//        }
+
+        if(ok&&!text.isEmpty())
+        {
+            //number of reservoirs
+            int resnum = text.toInt();
+            ui->textEdit->insertPlainText("\nplease select " + text + " reservoirs");
+
+            //get where the user clicked.
+            //int rowposition =**dmf_array.indexOf(sender());
+            //display window that gives them the option of where to add the reservoir (depending on where they clicked)
+            //send position of the array that they have selected
+            add_reservoir(resnum);
+
+        }
+
+    }
 }
 
+//displays and returns where to add the reservoirs
+//allows user to select where they want the reservoir to be, or cancel
+//keep track of how many times they've selected a reservoir
+void DMFgui::add_reservoir(int resnum)
+{
+    //pop out a window
+
+}
 
 void DMFgui::updateDMF(QString to_Send)
 {
