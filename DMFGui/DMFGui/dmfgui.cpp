@@ -7,6 +7,7 @@
 #include <QtGui>
 #include <QtCore>
 #include <iostream>
+#include <QSignalMapper>
 
 QString to_Send = "";
 QString to_Display = "";
@@ -130,6 +131,8 @@ void DMFgui::on_enterButton_clicked()
     QString row = ui->rowEdit->text();
     QString column = ui->columnEdit->text();
     QGridLayout *gridLayout = new QGridLayout;
+    QSignalMapper *mapper = new QSignalMapper;
+    QLabel display;
 
     gridLayout->setHorizontalSpacing(0);
     gridLayout->setVerticalSpacing(0);
@@ -180,37 +183,49 @@ void DMFgui::on_enterButton_clicked()
                     dmf_array[i][j].setText(QString::number(numberingcount));
                     dmf_array[i][j].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
                     gridLayout->addWidget(&dmf_array[i][j],i,j);
-                    //QObject::connect(dmf_array[i][j],SIGNAL(clicked()),SLOT(save_to_String(dmf_array[i][j].text())));
 
+                    mapper->connect(&dmf_array[i][j],SIGNAL(clicked()),mapper,SLOT(map()));
+                    mapper->setMapping(&dmf_array[i][j],QString::number(numberingcount));
                 }
             }
         }
+
+        connect(mapper,SIGNAL(mapped(QString)),this,SLOT(buttonClicked(QString)));
+        gridLayout->addWidget(&display,newrow,0,1,newcolumn);
+
         ui->graphicsView->setLayout(gridLayout);
 
         //display message to user to specify number of reservoirs
         bool ok;
-        QString text = QInputDialog::getText(this,tr("Next Step"),tr("How many reservoirs do you want?"),QLineEdit::Normal,QDir::home().dirName(),&ok);
+        //QString text = QInputDialog::getText(this,tr("Next Step"),tr("How many reservoirs do you want?"),QLineEdit::Normal,QDir::home().dirName(),&ok);
 
 //        if (text.toInt() == 0)
 //        {
 //            QMessageBox::warning(this,tr("Not a number"), tr("This is not a number, try again"));
 //        }
 
-        if(ok&&!text.isEmpty())
-        {
-            //number of reservoirs
-            int resnum = text.toInt();
-            ui->textEdit->insertPlainText("\nplease select " + text + " reservoirs");
+//        if(ok&&!text.isEmpty())
+//        {
+//            //number of reservoirs
+//            int resnum = text.toInt();
+//            ui->textEdit->insertPlainText("\nplease select " + text + " reservoirs");
 
-            //get where the user clicked.
-            //int rowposition =**dmf_array.indexOf(sender());
-            //display window that gives them the option of where to add the reservoir (depending on where they clicked)
-            //send position of the array that they have selected
-            add_reservoir(resnum);
+//            //get where the user clicked.
+//            //int rowposition =**dmf_array.indexOf(sender());
+//            //display window that gives them the option of where to add the reservoir (depending on where they clicked)
+//            //send position of the array that they have selected
+//            add_reservoir(resnum);
 
-        }
+//        }
 
     }
+}
+
+void DMFgui::buttonClicked(QString text)
+{
+//    ui->label->setText(x);
+//    ui->textEdit->setPlainText(ui->label->text());
+    save_to_String(text);
 }
 
 //displays and returns where to add the reservoirs
