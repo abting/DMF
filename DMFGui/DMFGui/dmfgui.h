@@ -29,7 +29,7 @@ private slots:
     void on_exitButton_clicked();
     void on_sendButton_clicked();
     void on_enterButton_clicked();
-    void add_reservoir(int);
+    void add_reservoir();
     void buttonClicked(QString);
 //    void on_button_1_clicked();
 //    void on_button_2_clicked();
