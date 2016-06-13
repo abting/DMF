@@ -29,32 +29,10 @@ private slots:
     void on_exitButton_clicked();
     void on_sendButton_clicked();
     void on_enterButton_clicked();
-    void add_reservoir();
+    void add_reservoir(int,int,int);
+    int getRecent_x_Coordinate();
+    int getRecent_y_Coordinate();
     void buttonClicked(QString);
-//    void on_button_1_clicked();
-//    void on_button_2_clicked();
-//    void on_button_3_clicked();
-//    void on_button_4_clicked();
-//    void on_button_5_clicked();
-//    void on_button_6_clicked();
-//    void on_button_7_clicked();
-//    void on_button_8_clicked();
-//    void on_button_9_clicked();
-//    void on_button_10_clicked();
-//    void on_button_11_clicked();
-//    void on_button_12_clicked();
-//    void on_button_13_clicked();
-//    void on_button_14_clicked();
-//    void on_button_15_clicked();
-//    void on_button_16_clicked();
-//    void on_button_17_clicked();
-//    void on_button_18_clicked();
-//    void on_button_19_clicked();
-//    void on_button_20_clicked();
-//    void on_container_1_clicked();
-//    void on_container_2_clicked();
-//    void on_container_3_clicked();
-//    void on_container_4_clicked();
 
     void updateDMF(QString);
 
