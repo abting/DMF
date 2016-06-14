@@ -23,7 +23,7 @@ public:
     void mousePressEvent(QMouseEvent *e);
 
 public slots:
-    void openNewWindow();
+    QString openNewWindow(int);
 
 private slots:
 
@@ -38,8 +38,7 @@ private slots:
     int getRecent_x_Coordinate();
     int getRecent_y_Coordinate();
     void buttonClicked(QString);
-    QString openNewWindow(QString);
-    void autoGeneratePath(int,int,int, int, int);
+    //void autoGeneratePath(int,int,int, int, int);
     void ClearColor();
 
     void updateDMF(QString);
