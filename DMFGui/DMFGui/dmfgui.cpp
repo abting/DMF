@@ -8,6 +8,11 @@
 #include <QtCore>
 #include <iostream>
 #include <QSignalMapper>
+#include <iostream>
+#include <cmath>
+#include <stdlib.h>
+#include <cstdlib>
+#include <climits>
 
 QPushButton **dmf_array;
 QGridLayout *gridLayout;
@@ -18,6 +23,8 @@ int numberingcount = 0;
 int newrow;
 int newcolumn;
 int resnum;
+int added = 0;
+QString corner = "";
 
 QString to_Send = "";
 QString to_Display = "";
@@ -26,9 +33,16 @@ QString lineTrack = "";
 bool finished_Clicking = false;
 bool enter_Button_Clicked =false;
 
+QPushButton **point;
+
 bool addRes = false;
 int x;
 int y;
+
+int* rcoord;
+int* ccoord;
+int track[4];
+int size1;
 
 struct coordinates
 {
@@ -125,10 +139,151 @@ void DMFgui::on_resetButton_clicked()
     to_Send = "";
     ui->textEdit->clear();
 }
+void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
+
+  //Determine number of electrodes to be turned on
+  int size = abs(rowI-rowF)+abs(colI-colF);
+  point[rowI][colI].setStyleSheet("background-color:yellow");
+
+
+
+  //Create an array containing iCoordinates and jCoordinates
+  int iCoord [size], jCoord [size];
+
+  //Determines number of rows and columns needed to travel
+  int rows = abs(rowI-rowF);
+  int cols = abs(colI-colF);
+
+  //Determines which direction the electrode is traveling (northwest,northeast,southwest,southeast
+  bool rowCond = (rowF-rowI)>=0;
+  bool colCond = (colF-colI)>=0;
+
+  int a;
+
+  //Northeast
+  if (rowCond ==1 && colCond ==1){
+      if (path == 1){
+          for(a = 0; a<rows; a++){
+              iCoord[a] = ++rowI;
+              jCoord[a] = colI;
+          }
+          for(a;a<size;a++){
+              iCoord[a] = rowF;
+              jCoord[a] = ++colI;
+          }
+      }
+      else if (path == 2){
+          for(a = 0; a<cols; a++){
+              iCoord[a] = rowI;
+              jCoord[a] = ++colI;
+          }
+          for(a;a<size;a++){
+              iCoord[a] = ++rowI;
+              jCoord[a] = colF;
+          }
+      }
+  }
+
+  //
+  else if (rowCond ==1 && colCond ==0){
+      if (path == 1){
+          for(a = 0; a<rows; a++){
+              iCoord[a] = ++rowI;
+              jCoord[a] = colI;
+          }
+          for(a;a<size;a++){
+              iCoord[a] = rowF;
+              jCoord[a] = --colI;
+          }
+      }
+      else if (path == 2){
+          for(a = 0; a<cols; a++){
+              iCoord[a] = rowI;
+              jCoord[a] = --colI;
+          }
+          for(a;a<size;a++){
+              iCoord[a] = ++rowI;
+              jCoord[a] = colF;
+          }
+      }
+  }
+
+  else if (rowCond ==0 && colCond ==0){
+      if (path == 1){
+          for(a = 0; a<rows; a++){
+              iCoord[a] = --rowI;
+              jCoord[a] = colI;
+          }
+          for(a;a<size;a++){
+              iCoord[a] = rowF;
+              jCoord[a] = --colI;
+          }
+      }
+      else if (path == 2){
+          for(a = 0; a<cols; a++){
+              iCoord[a] = rowI;
+              jCoord[a] = --colI;
+          }
+          for(a;a<size;a++){
+              iCoord[a] = --rowI;
+              jCoord[a] = colF;
+          }
+      }
+  }
+
+  else if (rowCond ==0 && colCond ==1){
+      if (path == 1){
+          for(a = 0; a<rows; a++){
+              iCoord[a] = --rowI;
+              jCoord[a] = colI;
+          }
+          for(a;a<size;a++){
+              iCoord[a] = rowF;
+              jCoord[a] = ++colI;
+          }
+      }
+      else if (path == 2){
+          for(a = 0; a<cols; a++){
+              iCoord[a] = rowI;
+              jCoord[a] = ++colI;
+          }
+          for(a;a<size;a++){
+              iCoord[a] = --rowI;
+              jCoord[a] = colF;
+          }
+      }
+  }
+
+  //cout << "\n";
+
+  //Create array of electrodes to be turned on and store
+  QString retMap [size];
+  for (int m =0; m<size;m++){
+      retMap[m] = point[iCoord[m]][jCoord[m]].text();
+      point[iCoord[m]][jCoord[m]].setStyleSheet("background-color:green");      //Set electodes to be activated: green
+      save_to_String(retMap[m]);
+  }
+  point[iCoord[size-1]][jCoord[size-1]].setStyleSheet("background-color:blue"); //Set last electode to be activated: blue
+
+
+
+  //ui->textEdit->insertPlainText(retMap[0]+ " " +retMap[1]+ " " +retMap[2]+ " "+retMap[3]);
+
+}
+void DMFgui::ClearColor(){
+//    if(autoGen == true){
+//        for (int q=0;q<2;q++){
+//            for(int r=0;r<2;r++){
+//            //point[rcoord[0]][2].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+//            }
+//        }
+//    }
+}
 void DMFgui::on_exitButton_clicked()
 {
 
 }
+
 void DMFgui::on_sendButton_clicked()
 {
     QMessageBox::StandardButton reply;
@@ -279,13 +434,25 @@ void DMFgui::buttonClicked(QString text)
     //if addReservoir was called
     if (addRes)
     {
-        add_reservoir(newcolumn,newrow,resnum);
+        ui->textEdit->insertPlainText("\noutside the big loop: " + QString::number(added));
+        if (added<resnum)
+        {
+           if (add_reservoir(newcolumn,newrow,resnum))
+           {
+               added++;
+               ui->textEdit->insertPlainText("\noutside the small loop: " + QString::number(added));
+           }
+        }
+        else
+        {
+            addRes = false;
+        }
     }
 
 //    save_to_String(text);
 }
 
-void DMFgui::add_reservoir(int column, int row, int resnum)
+bool DMFgui::add_reservoir(int column, int row, int resnum)
 {
     //getting the most recent coordinates of pressed electrodes
     int x_coord = getRecent_x_Coordinate();
@@ -321,7 +488,41 @@ void DMFgui::add_reservoir(int column, int row, int resnum)
     {
         case 2:
             //ask user if they want a reservoir on the left or on the right
-            ui->textEdit->insertPlainText("doing case 2 stuff");
+            //make a separate case for each 4 corners
+            if (x_coord==2&&y_coord==2)
+            {
+                corner = "top-left" ;
+            }
+            else if (x_coord==2&&y_coord==(row-3))
+            {
+                corner = "bottom-left";
+            }
+            else if (x_coord==(column-3)&&y_coord==(row-3))
+            {
+                corner = "bottom-right";
+            }
+            else if (x_coord==(column-3)&&y_coord==2)
+            {
+                corner = "top-right";
+            }
+
+            if (openNewWindow(corner)=="top")
+            {
+
+            }
+            else if (openNewWindow(corner)=="left")
+            {
+
+            }
+            else if (openNewWindow(corner)=="right")
+            {
+
+            }
+            else if (openNewWindow(corner)=="bottom")
+            {
+
+            }
+            return true;
             break;
         case 1:
             //add new buttons depending on where the button clicked is (reservoir is hatched)
@@ -333,24 +534,28 @@ void DMFgui::add_reservoir(int column, int row, int resnum)
                 {
                     gridLayout->addWidget(extra_elec,y_coord,1);
                     gridLayout->addWidget(reservoir,y_coord,0);
+                    return true;
                     break;
                 }
                 else if (x_coord==(column-3)) //right column
                 {
                     gridLayout->addWidget(extra_elec,y_coord,column-2);
                     gridLayout->addWidget(reservoir,y_coord,column-1);
+                    return true;
                     break;
                 }
                 else if (y_coord==2)
                 {
                     gridLayout->addWidget(extra_elec,1,x_coord);
                     gridLayout->addWidget(reservoir,0,x_coord);
+                    return true;
                     break;
                 }
                 else if(y_coord==(row-3))
                 {
                     gridLayout->addWidget(extra_elec,row-2,x_coord);
                     gridLayout->addWidget(reservoir,row-1,x_coord);
+                    return true;
                     break;
                 }
 
@@ -359,6 +564,7 @@ void DMFgui::add_reservoir(int column, int row, int resnum)
 
         case 0:
             QMessageBox::warning(this,tr("Invalid"), tr("You can't put a reservoir here"));
+            return false;
             break;
     }
 }
@@ -445,13 +651,34 @@ void DMFgui::on_UndoButton_clicked()
 //    set_Scene();
 //}
 
+QString DMFgui::openNewWindow(QString corner)
+{
+    dialog = new Dialog();
+    if (corner = "top-left")
+    {
+
+    }
+    else if (corner ="top-right")
+    {
+
+    }
+    else if (corner = "bottom-left")
+    {
+
+    }
+    else if(corner ="bottome-right")
+    {
+
+    }
+    dialog->show();
+}
 
 void DMFgui::mousePressEvent(QMouseEvent *e)
 {
-    if (e->button() == Qt::LeftButton)
-    {
-        ui->textEdit->insertPlainText("Pressed"); //double check this, it's appearing with the line edit
-    }
+//    if (e->button() == Qt::LeftButton)
+//    {
+//        ui->textEdit->insertPlainText("Pressed"); //double check this, it's appearing with the line edit
+//    }
 }
 
 void DMFgui::on_Voltage_SendButton_clicked()
@@ -461,4 +688,15 @@ void DMFgui::on_Voltage_SendButton_clicked()
 
     float to_Send = voltage.toFloat();
     //connect to the fgen class (generate the commands from there)
+}
+
+void DMFgui::on_autogen_Button_clicked()
+{
+    // Four inputs
+        int a1=electrode_1.x;
+        int a2=electrode_1.y;
+        int a3=electrode_2.x;
+        int a4=electrode_2.y;
+        autoGeneratePath(a1,a2,a3,a4,1);
+        //testing purposes: autoGen = true;
 }

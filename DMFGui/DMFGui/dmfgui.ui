@@ -222,6 +222,19 @@
       <string>Enter</string>
      </property>
     </widget>
+    <widget class="QPushButton" name="autogen_Button">
+     <property name="geometry">
+      <rect>
+       <x>314</x>
+       <y>290</y>
+       <width>91</width>
+       <height>23</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>auto generate</string>
+     </property>
+    </widget>
    </widget>
    <widget class="QWidget" name="tab_2">
     <attribute name="title">

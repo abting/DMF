@@ -6,6 +6,7 @@
 #include <QGraphicsItem>
 #include <QMouseEvent>
 #include "fgen.h"
+#include "dialog.h"
 
 namespace Ui {
 class DMFgui;
@@ -20,6 +21,10 @@ public:
     ~DMFgui();
 
     void mousePressEvent(QMouseEvent *e);
+
+public slots:
+    void openNewWindow();
+
 private slots:
 
     void on_mixButton_clicked();
@@ -29,10 +34,13 @@ private slots:
     void on_exitButton_clicked();
     void on_sendButton_clicked();
     void on_enterButton_clicked();
-    void add_reservoir(int,int,int);
+    bool add_reservoir(int,int,int);
     int getRecent_x_Coordinate();
     int getRecent_y_Coordinate();
     void buttonClicked(QString);
+    QString openNewWindow(QString);
+    void autoGeneratePath(int,int,int, int, int);
+    void ClearColor();
 
     void updateDMF(QString);
 
@@ -44,11 +52,13 @@ private slots:
 
 //    void on_loadButton_clicked();
 
-
     void on_Voltage_SendButton_clicked();
+
+    void on_autogen_Button_clicked();
 
 private:
     Ui::DMFgui *ui;
+    Dialog *dialog;
 
     //initializing arduino here
     QSerialPort *arduino;

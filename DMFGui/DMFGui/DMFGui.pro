@@ -14,11 +14,14 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp\
-        dmfgui.cpp
+        dmfgui.cpp \
+    dialog.cpp
 
-HEADERS  += dmfgui.h
+HEADERS  += dmfgui.h \
+    dialog.h
 
-FORMS    += dmfgui.ui
+FORMS    += dmfgui.ui \
+    dialog.ui
 
 RESOURCES += \
     dmf_scene_v2.qrc \
