@@ -38,7 +38,7 @@ private slots:
     int getRecent_x_Coordinate();
     int getRecent_y_Coordinate();
     void buttonClicked(QString);
-    //void autoGeneratePath(int,int,int, int, int);
+    void autoGeneratePath(int,int,int, int, int);
     void ClearColor();
 
     void updateDMF(QString);

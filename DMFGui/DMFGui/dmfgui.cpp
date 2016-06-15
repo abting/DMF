@@ -138,137 +138,138 @@ void DMFgui::on_resetButton_clicked()
     to_Send = "";
     ui->textEdit->clear();
 }
-//void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
 
-//  //Determine number of electrodes to be turned on
-//  int size = abs(rowI-rowF)+abs(colI-colF);
-//  point[rowI][colI].setStyleSheet("background-color:yellow");
+void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
 
-
-
-//  //Create an array containing iCoordinates and jCoordinates
-//  int iCoord [size], jCoord [size];
-
-//  //Determines number of rows and columns needed to travel
-//  int rows = abs(rowI-rowF);
-//  int cols = abs(colI-colF);
-
-//  //Determines which direction the electrode is traveling (northwest,northeast,southwest,southeast
-//  bool rowCond = (rowF-rowI)>=0;
-//  bool colCond = (colF-colI)>=0;
-
-//  int a;
-
-//  //Northeast
-//  if (rowCond ==1 && colCond ==1){
-//      if (path == 1){
-//          for(a = 0; a<rows; a++){
-//              iCoord[a] = ++rowI;
-//              jCoord[a] = colI;
-//          }
-//          for(a;a<size;a++){
-//              iCoord[a] = rowF;
-//              jCoord[a] = ++colI;
-//          }
-//      }
-//      else if (path == 2){
-//          for(a = 0; a<cols; a++){
-//              iCoord[a] = rowI;
-//              jCoord[a] = ++colI;
-//          }
-//          for(a;a<size;a++){
-//              iCoord[a] = ++rowI;
-//              jCoord[a] = colF;
-//          }
-//      }
-//  }
-
-//  //
-//  else if (rowCond ==1 && colCond ==0){
-//      if (path == 1){
-//          for(a = 0; a<rows; a++){
-//              iCoord[a] = ++rowI;
-//              jCoord[a] = colI;
-//          }
-//          for(a;a<size;a++){
-//              iCoord[a] = rowF;
-//              jCoord[a] = --colI;
-//          }
-//      }
-//      else if (path == 2){
-//          for(a = 0; a<cols; a++){
-//              iCoord[a] = rowI;
-//              jCoord[a] = --colI;
-//          }
-//          for(a;a<size;a++){
-//              iCoord[a] = ++rowI;
-//              jCoord[a] = colF;
-//          }
-//      }
-//  }
-
-//  else if (rowCond ==0 && colCond ==0){
-//      if (path == 1){
-//          for(a = 0; a<rows; a++){
-//              iCoord[a] = --rowI;
-//              jCoord[a] = colI;
-//          }
-//          for(a;a<size;a++){
-//              iCoord[a] = rowF;
-//              jCoord[a] = --colI;
-//          }
-//      }
-//      else if (path == 2){
-//          for(a = 0; a<cols; a++){
-//              iCoord[a] = rowI;
-//              jCoord[a] = --colI;
-//          }
-//          for(a;a<size;a++){
-//              iCoord[a] = --rowI;
-//              jCoord[a] = colF;
-//          }
-//      }
-//  }
-
-//  else if (rowCond ==0 && colCond ==1){
-//      if (path == 1){
-//          for(a = 0; a<rows; a++){
-//              iCoord[a] = --rowI;
-//              jCoord[a] = colI;
-//          }
-//          for(a;a<size;a++){
-//              iCoord[a] = rowF;
-//              jCoord[a] = ++colI;
-//          }
-//      }
-//      else if (path == 2){
-//          for(a = 0; a<cols; a++){
-//              iCoord[a] = rowI;
-//              jCoord[a] = ++colI;
-//          }
-//          for(a;a<size;a++){
-//              iCoord[a] = --rowI;
-//              jCoord[a] = colF;
-//          }
-//      }
-//  }
-
-//  //cout << "\n";
-
-//  //Create array of electrodes to be turned on and store
-//  QString retMap [size];
-//  for (int m =0; m<size;m++){
-//      retMap[m] = point[iCoord[m]][jCoord[m]].text();
-//      point[iCoord[m]][jCoord[m]].setStyleSheet("background-color:green");      //Set electodes to be activated: green
-//      save_to_String(retMap[m]);
-//  }
-//  point[iCoord[size-1]][jCoord[size-1]].setStyleSheet("background-color:blue"); //Set last electode to be activated: blue
+  //Determine number of electrodes to be turned on
+  int size = abs(rowI-rowF)+abs(colI-colF);
+  point[rowI][colI].setStyleSheet("background-color:yellow");
 
 
 
-//  //ui->textEdit->insertPlainText(retMap[0]+ " " +retMap[1]+ " " +retMap[2]+ " "+retMap[3]);
+  //Create an array containing iCoordinates and jCoordinates
+  int iCoord [size], jCoord [size];
 
-//}
+  //Determines number of rows and columns needed to travel
+  int rows = abs(rowI-rowF);
+  int cols = abs(colI-colF);
+
+  //Determines which direction the electrode is traveling (northwest,northeast,southwest,southeast
+  bool rowCond = (rowF-rowI)>=0;
+  bool colCond = (colF-colI)>=0;
+
+  int a;
+
+  //Northeast
+  if (rowCond ==1 && colCond ==1){
+      if (path == 1){
+          for(a =0; a<rows; a++){
+              iCoord[a] = ++rowI;
+              jCoord[a] = colI;
+          }
+          for(a=0;a<size;a++){
+              iCoord[a] = rowF;
+              jCoord[a] = ++colI;
+          }
+      }
+      else if (path == 2){
+          for(a = 0; a<cols; a++){
+              iCoord[a] = rowI;
+              jCoord[a] = ++colI;
+          }
+          for(a=0;a<size;a++){
+              iCoord[a] = ++rowI;
+              jCoord[a] = colF;
+          }
+      }
+  }
+
+  //
+  else if (rowCond ==1 && colCond ==0){
+      if (path == 1){
+          for(a = 0; a<rows; a++){
+              iCoord[a] = ++rowI;
+              jCoord[a] = colI;
+          }
+          for(a=0;a<size;a++){
+              iCoord[a] = rowF;
+              jCoord[a] = --colI;
+          }
+      }
+      else if (path == 2){
+          for(a = 0; a<cols; a++){
+              iCoord[a] = rowI;
+              jCoord[a] = --colI;
+          }
+          for(a=0;a<size;a++){
+              iCoord[a] = ++rowI;
+              jCoord[a] = colF;
+          }
+      }
+  }
+
+  else if (rowCond ==0 && colCond ==0){
+      if (path == 1){
+          for(a = 0; a<rows; a++){
+              iCoord[a] = --rowI;
+              jCoord[a] = colI;
+          }
+          for(a=0;a<size;a++){
+              iCoord[a] = rowF;
+              jCoord[a] = --colI;
+          }
+      }
+      else if (path == 2){
+          for(a = 0; a<cols; a++){
+              iCoord[a] = rowI;
+              jCoord[a] = --colI;
+          }
+          for(a=0;a<size;a++){
+              iCoord[a] = --rowI;
+              jCoord[a] = colF;
+          }
+      }
+  }
+
+  else if (rowCond ==0 && colCond ==1){
+      if (path == 1){
+          for(a = 0; a<rows; a++){
+              iCoord[a] = --rowI;
+              jCoord[a] = colI;
+          }
+          for(a=0;a<size;a++){
+              iCoord[a] = rowF;
+              jCoord[a] = ++colI;
+          }
+      }
+      else if (path == 2){
+          for(a = 0; a<cols; a++){
+              iCoord[a] = rowI;
+              jCoord[a] = ++colI;
+          }
+          for(a=0;a<size;a++){
+              iCoord[a] = --rowI;
+              jCoord[a] = colF;
+          }
+      }
+  }
+
+  //cout << "\n";
+
+  //Create array of electrodes to be turned on and store
+  QString retMap [size];
+  for (int m =0; m<size;m++){
+      retMap[m] = point[iCoord[m]][jCoord[m]].text();
+      point[iCoord[m]][jCoord[m]].setStyleSheet("background-color:green");      //Set electodes to be activated: green
+      save_to_String(retMap[m]);
+  }
+  point[iCoord[size-1]][jCoord[size-1]].setStyleSheet("background-color:blue"); //Set last electode to be activated: blue
+
+
+
+  //ui->textEdit->insertPlainText(retMap[0]+ " " +retMap[1]+ " " +retMap[2]+ " "+retMap[3]);
+
+}
 void DMFgui::ClearColor(){
 //    if(autoGen == true){
 //        for (int q=0;q<2;q++){
@@ -445,6 +446,7 @@ void DMFgui::buttonClicked(QString text)
         else
         {
             addRes = false;
+            ui->textEdit->insertPlainText("DONE");
         }
     }
 
@@ -467,6 +469,7 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
     bool case2_out;
 
     int caseSwitch;
+    QString location = "";
 
     //the cases work fine. They're accurate
     if ((x_coord==2&&y_coord==2)||(x_coord==2&&y_coord==(row-3))||(x_coord==(column-3)&&y_coord==(row-3))||(x_coord==(column-3)&&y_coord==2))
@@ -514,29 +517,35 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
                 corner = 2;//"top-right"
             }
 
-            if (openNewWindow(corner)=="top")
+            location = openNewWindow(corner);
+
+            if (location=="top")
             {
+                ui->textEdit->insertPlainText("\n inserting top");
                 gridLayout->addWidget(extra_elec,1,x_coord);
                 gridLayout->addWidget(reservoir,0,x_coord);
                 return true;
                 break;
             }
-            else if (openNewWindow(corner)=="left")
+            if (location=="left")
             {
+                ui->textEdit->insertPlainText("\n inserting left");
                 gridLayout->addWidget(extra_elec,y_coord,1);
                 gridLayout->addWidget(reservoir,y_coord,0);
                 return true;
                 break;
             }
-            else if (openNewWindow(corner)=="right")
+            if (location=="right")
             {
+                 ui->textEdit->insertPlainText("\n inserting right");
                 gridLayout->addWidget(extra_elec,y_coord,row-2);
                 gridLayout->addWidget(reservoir,y_coord,row-1);
                 return true;
                 break;
             }
-            else if (openNewWindow(corner)=="bottom")
+            if (location=="bottom")
             {
+                 ui->textEdit->insertPlainText("\n inserting bottom");
                 gridLayout->addWidget(extra_elec,column-2,x_coord);
                 gridLayout->addWidget(reservoir,column-1,x_coord);
                 return true;
@@ -677,34 +686,29 @@ QString DMFgui::openNewWindow(int corner)
     dialog->show();
     if (corner == 1)//"top-left"
     {
-        ui->textEdit->insertPlainText("\n got out of top-left");
-        dialog->topLeft();
-        ui->textEdit->insertPlainText(dialog->on_buttonBox_accepted());
-        return dialog->on_buttonBox_accepted();
+        ui->textEdit->insertPlainText("\nthis works " + dialog->choice("topLeft"));
+        return dialog->choice("topLeft");
     }
     else if (corner == 2)//"top-right"
     {
-        ui->textEdit->insertPlainText("\n got out of top-right");
-        dialog->topRight();
-        ui->textEdit->insertPlainText(dialog->on_buttonBox_accepted());
-        return dialog->on_buttonBox_accepted();
+//        dialog->topRight();
+//        ui->textEdit->insertPlainText(dialog->on_buttonBox_accepted());
+//        return dialog->on_buttonBox_accepted();
     }
     else if (corner == 3)//"bottom-right"
     {
-        ui->textEdit->insertPlainText("\n got out of bottom-right");
-        dialog->bottomRight();
-        ui->textEdit->insertPlainText(dialog->on_buttonBox_accepted());
-        return dialog->on_buttonBox_accepted();
+//        ui->textEdit->insertPlainText("\n got out of bottom-right");
+//        dialog->bottomRight();
+//        ui->textEdit->insertPlainText(dialog->on_buttonBox_accepted());
+//        return dialog->on_buttonBox_accepted();
     }
     else if(corner == 4)//"bottom-left"
     {
-        ui->textEdit->insertPlainText("\n got out of bottom-left");
-        dialog->bottomLeft();
-        ui->textEdit->insertPlainText(dialog->on_buttonBox_accepted());
-        return dialog->on_buttonBox_accepted();
+//        ui->textEdit->insertPlainText("\n got out of bottom-left");
+//        dialog->bottomLeft();
+//        ui->textEdit->insertPlainText(dialog->on_buttonBox_accepted());
+//        return dialog->on_buttonBox_accepted();
     }
-
-    return "nothing";
 }
 
 void DMFgui::mousePressEvent(QMouseEvent *e)
@@ -731,6 +735,6 @@ void DMFgui::on_autogen_Button_clicked()
         int a2=electrode_1.y;
         int a3=electrode_2.x;
         int a4=electrode_2.y;
-//        autoGeneratePath(a1,a2,a3,a4,1);
+        autoGeneratePath(a1,a2,a3,a4,1);
         //testing purposes: autoGen = true;
 }
