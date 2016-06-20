@@ -36,8 +36,6 @@ private slots:
     void on_sendButton_clicked();
     void on_enterButton_clicked();
     bool add_reservoir(int,int,int);
-    int getRecent_x_Coordinate();
-    int getRecent_y_Coordinate();
     void buttonClicked(QString);
     void autoGeneratePath(int,int,int, int, int);
     void ClearColor();
@@ -55,6 +53,10 @@ private slots:
     void on_Voltage_SendButton_clicked();
 
     void on_autogen_Button_clicked();
+
+    int* getRecent_Coordinates();
+
+    void setMapping(int, int);
 
 private:
     Ui::DMFgui *ui;

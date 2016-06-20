@@ -14,22 +14,18 @@
 #include <cstdlib>
 #include <climits>
 
-QPushButton **dmf_array;  //may want to take out
+QPushButton **dmf_array;
 QGridLayout *gridLayout;
 QSignalMapper *mapper;
+QPushButton *extra_elec;
 
 //used for numbering the electrodes
 int numberingcount = 0;
-int newrow,newcolumn;
-int resnum;
+int newrow,newcolumn,resnum,corner;
 int added = 0;
-int corner;
+int elec = 1;
 
 QString to_Send = "";
-QString to_Display = "";
-int nextLineCount = 0;
-QString lineTrack = "";
-bool finished_Clicking = false;
 bool enter_Button_Clicked =false;
 
 QPushButton **point;
@@ -52,8 +48,6 @@ struct coordinates
     int x;
     int y;
 }electrode_1,electrode_2;
-
-int elec = 1;
 
 DMFgui::DMFgui(QWidget *parent) :
     QDialog(parent),
@@ -84,11 +78,14 @@ DMFgui::DMFgui(QWidget *parent) :
         }
     }
     if (arduino_is_available){
+
         //open and configure the serialport
         //set the port name
         arduino->setPortName(arduino_port_name);
+
         //open it, only sending command, not writing anything (so writeOnly)
         arduino->open(QSerialPort::WriteOnly);
+
         //make sure that Baud rate matches what's on the arduino
         arduino->setBaudRate(QSerialPort::Baud9600);
         arduino->setDataBits(QSerialPort::Data8);
@@ -157,7 +154,7 @@ void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
     //Determine number of electrodes to be turned on
     int size = abs(trowI-trowF)+abs(tcolI-tcolF);
     size1 =size;
-    point[rowI][colI].setStyleSheet("background-color:yellow");     //starting electrode becomes yellow
+    point[rowI][colI].setStyleSheet("background-color:yellow; border-style: outset ;border-width: 2px; border-color: grey");     //starting electrode becomes yellow
 
     //Create an array containing xcoordinates and ycoordinates
     int *xcoord = new int [size];
@@ -276,11 +273,13 @@ void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
   for (int m =0; m<size;m++){
       retMap[m] = point[xcoord[m]][ycoord[m]].text();
       //Set electodes to be activated: green
-      point[ycoord[m]][xcoord[m]].setStyleSheet("background-color:green");
-      //save_to_String(retMap[m]);
+      point[ycoord[m]][xcoord[m]].setStyleSheet("background-color:green; border-style: outset ;border-width: 2px; border-color: grey");
+      save_to_String(retMap[m]);
   }
   //Set final electrode to blue
-  point[rowF][colF].setStyleSheet("background-color:blue");
+  point[rowF][colF].setStyleSheet("background-color:blue; border-style: outset ;border-width: 2px; border-color: grey");
+//  ui->textEdit->insertPlainText("\ncolF: " +QString::number(colF));
+//  ui->textEdit->insertPlainText("\nrowF: " +QString::number(rowF));
 
   //Pointers used to turn colors off
   rcoord = ycoord;
@@ -288,6 +287,7 @@ void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
   autoGen = true;
 }
 
+// ** next step: allowing user to modify autogenerate path **
 void DMFgui::ClearColor(){
     if(autoGen == true){
         point[firstR][firstC].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
@@ -301,7 +301,7 @@ void DMFgui::ClearColor(){
 }
 void DMFgui::on_exitButton_clicked()
 {
-
+    QApplication::quit();
 }
 
 void DMFgui::on_sendButton_clicked()
@@ -322,10 +322,8 @@ void DMFgui::on_sendButton_clicked()
     //automatically go back if user is not sure
 }
 
-
 void DMFgui::on_enterButton_clicked()
 {
-
     //get the texts from the textEdits
     QString row = ui->rowEdit->text();
     QString column = ui->columnEdit->text();
@@ -375,7 +373,6 @@ void DMFgui::on_enterButton_clicked()
                     {
                         gridLayout->addWidget(empty,i,j);
                     }
-
                     else
                     {
                         numberingcount++;
@@ -401,47 +398,57 @@ void DMFgui::on_enterButton_clicked()
 
             if (text.toInt() == 0)
             {
-                QMessageBox::warning(this,tr("Not a number"), tr("This is not a number, try again"));
+                bool number = false;
+                while (!number)
+                {
+                   QMessageBox::warning(this,tr("Not a number"), tr("This is not a number, try again"));
+                   text = QInputDialog::getText(this,tr("Next Step"),tr("How many reservoirs do you want?"),QLineEdit::Normal,QDir::home().dirName(),&ok);
+                   if (text.toInt() == 0)
+                   {
+                      number = false;
+                   }
+                   else
+                   {
+                       number = true;
+                   }
+                }
             }
 
             if(ok&&!text.isEmpty())
             {
                 //number of reservoirs
                 resnum = text.toInt();
-                ui->textEdit->insertPlainText("\nplease select " + text + " reservoirs");
-
-                //display window that gives them the option of where to add the reservoir (depending on where they clicked)
-                //send position of the array that they have selected
+                ui->textEdit->insertPlainText("please select " + text + " reservoirs");
 
                 addRes = true;
             }
-
+            enter_Button_Clicked = true;
         }
-        enter_Button_Clicked = true;
     }
     else
     {
-        QMessageBox::warning(this,tr("Invalid"), tr("You can't click on this button again"));
+        if (enter_Button_Clicked)
+        {
+            QMessageBox::warning(this,tr("Invalid"), tr("You can't click on this button again"));
+        }
     }
 }
 
+//When an electrode is clicked
 void DMFgui::buttonClicked(QString text)
 {
     ClearColor();
     QStringList electrodeList;
     electrodeList = text.split(",");
-//    ui->textEdit->insertPlainText("\n electrodeList: y: "+electrodeList.value(0)+" x: "+electrodeList.value(1)+" "+electrodeList.value(2));
-//    ui->label->setText(x);
-//    ui->textEdit->setPlainText(ui->label->text());
     if (elec ==1)
     {
-        electrode_1.x = electrodeList.value(1).toInt(); //converting from ASCII
+        electrode_1.x = electrodeList.value(1).toInt();
         electrode_1.y = electrodeList.value(0).toInt();
 
-        ui->textEdit->insertPlainText("\n electrode_1");
-        ui->textEdit->insertPlainText("\n electrode: " +electrodeList.value(2));
-        ui->textEdit->insertPlainText("\n x coordinate: " +QString::number(electrode_1.x));
-        ui->textEdit->insertPlainText("\n y coordinate: " +QString::number(electrode_1.y));
+//        ui->textEdit->insertPlainText("\n electrode_1");
+//        ui->textEdit->insertPlainText("\n electrode: " +electrodeList.value(2));
+//        ui->textEdit->insertPlainText("\n x coordinate: " +QString::number(electrode_1.x));
+//        ui->textEdit->insertPlainText("\n y coordinate: " +QString::number(electrode_1.y));
 
         elec ++; //go to electrode_2 next time a button is pressed
     }
@@ -450,10 +457,10 @@ void DMFgui::buttonClicked(QString text)
         electrode_2.x = electrodeList.value(1).toInt();
         electrode_2.y = electrodeList.value(0).toInt();
 
-        ui->textEdit->insertPlainText("\n electrode_2");
-        ui->textEdit->insertPlainText("\n electrode: " + electrodeList.value(2));
-        ui->textEdit->insertPlainText("\n x coordinate: " +QString::number(electrode_2.x));
-        ui->textEdit->insertPlainText("\n y coordinate: " +QString::number(electrode_2.y));
+//        ui->textEdit->insertPlainText("\n electrode_2");
+//        ui->textEdit->insertPlainText("\n electrode: " + electrodeList.value(2));
+//        ui->textEdit->insertPlainText("\n x coordinate: " +QString::number(electrode_2.x));
+//        ui->textEdit->insertPlainText("\n y coordinate: " +QString::number(electrode_2.y));
 
         elec --; //go to electrode_1 next time a button is pressed
     }
@@ -465,35 +472,38 @@ void DMFgui::buttonClicked(QString text)
         {
            if (add_reservoir(newcolumn,newrow,resnum))
            {
+               ui->textEdit->insertPlainText("/n in this loop");
                added++;
            }
         }
         else
         {
             addRes = false;
-            ui->textEdit->insertPlainText("DONE");
+            QMessageBox::warning(this,tr("Next Step"), tr("You can start generating paths"));
         }
     }
 
     else
     {
-        save_to_String(electrodeList.value(2));
-        //work on converting numbers > 9 into 10's 20's etc
+            //ui->textEdit->insertPlainText("\n called");
+            save_to_String(electrodeList.value(2));
     }
 }
 
 bool DMFgui::add_reservoir(int column, int row, int resnum)
 {
+    int * coords = getRecent_Coordinates();
+
     //getting the most recent coordinates of pressed electrodes
-    int x_coord = getRecent_x_Coordinate();
-    int y_coord = getRecent_y_Coordinate();
+    int x_coord = coords[3];
+    int y_coord = coords[2];
 
     QPushButton *reservoir = new QPushButton;
     reservoir->setText("res");
     reservoir->setEnabled(false);//cannot press this button
     reservoir->setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
 
-    QPushButton *extra_elec = new QPushButton;
+    extra_elec = new QPushButton;
     extra_elec->setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
 
     int caseSwitch;
@@ -579,6 +589,7 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
                 {
                     gridLayout->addWidget(extra_elec,y_coord,1);
                     gridLayout->addWidget(reservoir,y_coord,0);
+                    setMapping(1,y_coord);
                     return true;
                     break;
                 }
@@ -586,6 +597,7 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
                 {
                     gridLayout->addWidget(extra_elec,y_coord,column-2);
                     gridLayout->addWidget(reservoir,y_coord,column-1);
+                    setMapping(column-2,y_coord);
                     return true;
                     break;
                 }
@@ -593,6 +605,7 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
                 {
                     gridLayout->addWidget(extra_elec,1,x_coord);
                     gridLayout->addWidget(reservoir,0,x_coord);
+                    setMapping(x_coord,1);
                     return true;
                     break;
                 }
@@ -600,13 +613,10 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
                 {
                     gridLayout->addWidget(extra_elec,row-2,x_coord);
                     gridLayout->addWidget(reservoir,row-1,x_coord);
+                    setMapping(x_coord,row-2);
                     return true;
                     break;
                 }
-
-                mapper->connect(extra_elec,SIGNAL(clicked()),mapper,SLOT(map()));
-                mapper->setMapping(extra_elec,QString::number(x_coord-1)+QString::number(y_coord)+QString::number(numberingcount));
-
         case 0:
             QMessageBox::warning(this,tr("Invalid"), tr("You can't put a reservoir here"));
             return false;
@@ -614,34 +624,34 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
     }
 }
 
-//getting the most recent x coordinate of electrode that was clicked
-int DMFgui::getRecent_x_Coordinate()
+void DMFgui::setMapping(int x, int y)
 {
-    int x=0;
-    if (elec==1)
-    {
-        x = electrode_2.x;
-    }
-    else if (elec==2)
-    {
-        x = electrode_1.x;
-    }
-    return x;
+    ui->textEdit->insertPlainText("\nhere");
+//    gridLayout->addWidget(&dmf_array[x][y],y,x);
+    mapper->connect(extra_elec,SIGNAL(clicked()),mapper,SLOT(map()));
+    mapper->setMapping(extra_elec,QString::number(y)+","+QString::number(x)+","+QString::number(numberingcount));
+    //connect(mapper,SIGNAL(mapped(QString)),this,SLOT(buttonClicked(QString)));
 }
 
-int DMFgui::getRecent_y_Coordinate()
-{
-    int y =0;
+int * DMFgui::getRecent_Coordinates(){
+    int recentCoord[4];
     if (elec==1)
     {
-        y = electrode_2.y;
+        recentCoord[0] = electrode_1.y;
+        recentCoord[2] = electrode_2.y;
+        recentCoord[1] = electrode_1.x;
+        recentCoord[3] = electrode_2.x;
     }
     else if (elec==2)
     {
-        y = electrode_1.y;
+        recentCoord[0] = electrode_2.y;
+        recentCoord[2] = electrode_1.y;
+        recentCoord[1] = electrode_2.x;
+        recentCoord[3] = electrode_1.x;
     }
-    return y;
+    return recentCoord;
 }
+
 
 void DMFgui::updateDMF(QString to_Send)
 {
@@ -746,10 +756,12 @@ void DMFgui::on_Voltage_SendButton_clicked()
 void DMFgui::on_autogen_Button_clicked()
 {
     // Four inputs
-        int a1=electrode_1.y;
-        int a2=electrode_1.x;
-        int a3=electrode_2.y;
-        int a4=electrode_2.x;
+    int *z = getRecent_Coordinates();
+
+       int a1 = z[0];
+       int a2 = z[1];
+       int a3 = z[2];
+       int a4 = z[3];
         //Path 1 is set as a default
         autoGeneratePath(a1,a2,a3,a4,1);
 }
