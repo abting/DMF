@@ -14,7 +14,7 @@
 #include <cstdlib>
 #include <climits>
 
-QPushButton **dmf_array;
+QPushButton **dmf_array;  //may want to take out
 QGridLayout *gridLayout;
 QSignalMapper *mapper;
 
@@ -38,10 +38,14 @@ bool addRes = false;
 int x;
 int y;
 
+//Used for Autogen path, color assignments
 int* rcoord;
 int* ccoord;
 int track[4];
 int size1;
+int firstR,firstC;
+boolean autoGen = false;
+
 
 struct coordinates
 {
@@ -141,141 +145,159 @@ void DMFgui::on_resetButton_clicked()
 
 void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
 
-  //Determine number of electrodes to be turned on
-  int size = abs(rowI-rowF)+abs(colI-colF);
-  point[rowI][colI].setStyleSheet("background-color:yellow");
+    //creates local variables
+    int trowI = rowI;
+    int tcolI = colI;
+    int trowF = rowF;
+    int tcolF = colF;
+    firstR = rowI;
+    firstC = colI;
 
-  //Create an array containing iCoordinates and jCoordinates
-  int iCoord [size], jCoord [size];
 
-  //Determines number of rows and columns needed to travel
-  int rows = abs(rowI-rowF);
-  int cols = abs(colI-colF);
+    //Determine number of electrodes to be turned on
+    int size = abs(trowI-trowF)+abs(tcolI-tcolF);
+    size1 =size;
+    point[rowI][colI].setStyleSheet("background-color:yellow");     //starting electrode becomes yellow
+
+    //Create an array containing xcoordinates and ycoordinates
+    int *xcoord = new int [size];
+    int *ycoord = new int [size];
+
+    //Determines number of rows and columns needed to travel
+    int rows = abs(trowI-trowF);
+    int cols = abs(tcolI-tcolF);
 
   //Determines which direction the electrode is traveling (northwest,northeast,southwest,southeast
-  bool rowCond = (rowF-rowI)>=0;
-  bool colCond = (colF-colI)>=0;
+    bool rowCond = (trowF-trowI)>=0;
+    bool colCond = (tcolF-tcolI)>=0;
+    int a;
 
-  int a;
+  //Southeast
+  if (rowCond ==1 && colCond ==1){
+       if (path == 1){
+          for(a =0; a<cols; a++){
+              xcoord[a] = ++tcolI;
+              ycoord[a] = trowI;
+          }
+          for(a;a<size;a++){
+              xcoord[a] = tcolF;
+              ycoord[a] = ++trowI;
+          }
+      }
+      else if (path == 2){
+          for(a = 0; a<rows; a++){
+              xcoord[a] = tcolI;
+              ycoord[a] = ++trowI;
+          }
+          for(a;a<size;a++){
+              xcoord[a] = ++tcolI;
+              ycoord[a] = trowF;
+          }
+      }
+  }
+
+//Southwest
+  else if (rowCond ==1 && colCond ==0){
+
+      if (path == 1){
+          for(a=0; a<cols; a++){
+              xcoord[a] = --tcolI;
+              ycoord[a] = trowI;
+          }
+          for(a;a<size;a++){
+              xcoord[a] = tcolF;
+              ycoord[a] = ++trowI;
+          }
+      }
+      else if (path == 2){
+          for(a = 0; a<rows; a++){
+              xcoord[a] = tcolI;
+              ycoord[a] = ++trowI;
+          }
+          for(a;a<size;a++){
+              xcoord[a] = --tcolI;
+              ycoord[a] = trowF;
+          }
+      }
+  }
+
+  //Northwest
+  else if (rowCond ==0 && colCond ==0){
+
+      if (path == 1){
+          for(a = 0; a<cols; a++){
+              xcoord[a] = --tcolI;
+              ycoord[a] = trowI;
+          }
+          for(a;a<size;a++){
+              xcoord[a] = tcolF;
+              ycoord[a] = --trowI;
+          }
+      }
+      else if (path == 2){
+          for(a = 0; a<rows; a++){
+              xcoord[a] = tcolI;
+              ycoord[a] = --trowI;
+          }
+          for(a;a<size;a++){
+              xcoord[a] = --tcolI;
+              ycoord[a] = trowF;
+          }
+      }
+  }
 
   //Northeast
-  if (rowCond ==1 && colCond ==1){
-      if (path == 1){
-          for(a =0; a<rows; a++){
-              iCoord[a] = ++rowI;
-              jCoord[a] = colI;
-          }
-          for(a=0;a<size;a++){
-              iCoord[a] = rowF;
-              jCoord[a] = ++colI;
-          }
-      }
-      else if (path == 2){
-          for(a = 0; a<cols; a++){
-              iCoord[a] = rowI;
-              jCoord[a] = ++colI;
-          }
-          for(a=0;a<size;a++){
-              iCoord[a] = ++rowI;
-              jCoord[a] = colF;
-          }
-      }
-  }
-
-  //
-  else if (rowCond ==1 && colCond ==0){
-      if (path == 1){
-          for(a = 0; a<rows; a++){
-              iCoord[a] = ++rowI;
-              jCoord[a] = colI;
-          }
-          for(a=0;a<size;a++){
-              iCoord[a] = rowF;
-              jCoord[a] = --colI;
-          }
-      }
-      else if (path == 2){
-          for(a = 0; a<cols; a++){
-              iCoord[a] = rowI;
-              jCoord[a] = --colI;
-          }
-          for(a=0;a<size;a++){
-              iCoord[a] = ++rowI;
-              jCoord[a] = colF;
-          }
-      }
-  }
-
-  else if (rowCond ==0 && colCond ==0){
-      if (path == 1){
-          for(a = 0; a<rows; a++){
-              iCoord[a] = --rowI;
-              jCoord[a] = colI;
-          }
-          for(a=0;a<size;a++){
-              iCoord[a] = rowF;
-              jCoord[a] = --colI;
-          }
-      }
-      else if (path == 2){
-          for(a = 0; a<cols; a++){
-              iCoord[a] = rowI;
-              jCoord[a] = --colI;
-          }
-          for(a=0;a<size;a++){
-              iCoord[a] = --rowI;
-              jCoord[a] = colF;
-          }
-      }
-  }
-
   else if (rowCond ==0 && colCond ==1){
+
       if (path == 1){
-          for(a = 0; a<rows; a++){
-              iCoord[a] = --rowI;
-              jCoord[a] = colI;
+          for(a = 0; a<cols; a++){
+              xcoord[a] = ++tcolI;
+              ycoord[a] = trowI;
           }
-          for(a=0;a<size;a++){
-              iCoord[a] = rowF;
-              jCoord[a] = ++colI;
+          for(a;a<size;a++){
+              xcoord[a] = tcolF;
+              ycoord[a] = --trowI;
           }
       }
       else if (path == 2){
-          for(a = 0; a<cols; a++){
-              iCoord[a] = rowI;
-              jCoord[a] = ++colI;
+          for(a = 0; a<rows; a++){
+              xcoord[a] = tcolI;
+              ycoord[a] = --trowI;
           }
-          for(a=0;a<size;a++){
-              iCoord[a] = --rowI;
-              jCoord[a] = colF;
+          for(a;a<size;a++){
+              xcoord[a] = ++tcolI;
+              ycoord[a] = trowF;
           }
       }
   }
 
-  //cout << "\n";
-
-  //Create array of electrodes to be turned on and store
+  //Create array of electrodes to be turned on and store in a String
   QString retMap [size];
   for (int m =0; m<size;m++){
-      retMap[m] = point[iCoord[m]][jCoord[m]].text();
-      point[iCoord[m]][jCoord[m]].setStyleSheet("background-color:green");      //Set electodes to be activated: green
-      save_to_String(retMap[m]);
+      retMap[m] = point[xcoord[m]][ycoord[m]].text();
+      //Set electodes to be activated: green
+      point[ycoord[m]][xcoord[m]].setStyleSheet("background-color:green");
+      //save_to_String(retMap[m]);
   }
-  point[iCoord[size-1]][jCoord[size-1]].setStyleSheet("background-color:blue"); //Set last electode to be activated: blue
+  //Set final electrode to blue
+  point[rowF][colF].setStyleSheet("background-color:blue");
 
-
-
-  //ui->textEdit->insertPlainText(retMap[0]+ " " +retMap[1]+ " " +retMap[2]+ " "+retMap[3]);
-
+  //Pointers used to turn colors off
+  rcoord = ycoord;
+  ccoord = xcoord;
+  autoGen = true;
 }
+
 void DMFgui::ClearColor(){
-//    if(autoGen == true){
-//        for (int q=0;q<2;q++){
-//            for(int r=0;r<2;r++){
-//            //point[rcoord[0]][2].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
-//            }
-//        }
-//    }
+    if(autoGen == true){
+        point[firstR][firstC].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+        for (int q=0;q<size1;q++){
+            for(int r=0;r<size1;r++){
+            point[rcoord[q]][ccoord[r]].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+            }
+        }
+    }
+    autoGen = false;
 }
 void DMFgui::on_exitButton_clicked()
 {
@@ -334,9 +356,11 @@ void DMFgui::on_enterButton_clicked()
             newcolumn = dcolumn+4;
 
             dmf_array = new QPushButton*[newrow];
-                    for(int i=0;i<newrow;i++){
-                        dmf_array[i]=new QPushButton[newcolumn];
-                    }
+            for(int i=0;i<newrow;i++){
+                dmf_array[i]=new QPushButton[newcolumn];
+            }
+
+            point = dmf_array;
 
             QLabel *empty = new QLabel(this);
 
@@ -403,6 +427,7 @@ void DMFgui::on_enterButton_clicked()
 
 void DMFgui::buttonClicked(QString text)
 {
+    ClearColor();
     QStringList electrodeList;
     electrodeList = text.split(",");
 //    ui->textEdit->insertPlainText("\n electrodeList: y: "+electrodeList.value(0)+" x: "+electrodeList.value(1)+" "+electrodeList.value(2));
@@ -721,11 +746,10 @@ void DMFgui::on_Voltage_SendButton_clicked()
 void DMFgui::on_autogen_Button_clicked()
 {
     // Four inputs
-        int a1=electrode_1.x;
-        int a2=electrode_1.y;
-        int a3=electrode_2.x;
-        int a4=electrode_2.y;
-        ui->textEdit->insertPlainText("\n electrode_1.x" + QString::number(a1));
-        //autoGeneratePath(a1,a2,a3,a4,1);
-        //testing purposes: autoGen = true;
+        int a1=electrode_1.y;
+        int a2=electrode_1.x;
+        int a3=electrode_2.y;
+        int a4=electrode_2.x;
+        //Path 1 is set as a default
+        autoGeneratePath(a1,a2,a3,a4,1);
 }
