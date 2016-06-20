@@ -84,13 +84,6 @@
       <item>
        <widget class="QTextEdit" name="textEdit"/>
       </item>
-      <item>
-       <widget class="QScrollBar" name="verticalScrollBar">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-       </widget>
-      </item>
      </layout>
     </widget>
     <widget class="QPushButton" name="UndoButton">

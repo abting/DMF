@@ -21,6 +21,7 @@ public:
     ~DMFgui();
 
     void mousePressEvent(QMouseEvent *e);
+    QString location = "";
 
 public slots:
     QString openNewWindow(int);

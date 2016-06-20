@@ -14,19 +14,20 @@ class Dialog : public QDialog
 public:
     explicit Dialog(QWidget *parent = 0);
     ~Dialog();
+
+    QString saved;
 public slots:
 //    void topLeft();
 //    void topRight();
 //    void bottomLeft();
 //    void bottomRight();
-//      QString on_buttonBox_accepted();
-    QString on_okButton_clicked();
 
-    QString choice(QString);
+    void choice(QString);
 private slots:
-//    QString on_buttonBox_accepted();
 
-      //void on_okButton_clicked();
+    void on_okButton_clicked();
+
+    void on_cancelButton_clicked();
 
 private:
     Ui::Dialog *ui;

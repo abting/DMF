@@ -145,8 +145,6 @@ void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
   int size = abs(rowI-rowF)+abs(colI-colF);
   point[rowI][colI].setStyleSheet("background-color:yellow");
 
-
-
   //Create an array containing iCoordinates and jCoordinates
   int iCoord [size], jCoord [size];
 
@@ -362,9 +360,8 @@ void DMFgui::on_enterButton_clicked()
                         dmf_array[i][j].setText(QString::number(numberingcount));
                         dmf_array[i][j].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
                         gridLayout->addWidget(&dmf_array[i][j],i,j);
-
                         mapper->connect(&dmf_array[i][j],SIGNAL(clicked()),mapper,SLOT(map()));
-                        mapper->setMapping(&dmf_array[i][j],QString::number(i)+QString::number(j)+QString::number(numberingcount));
+                        mapper->setMapping(&dmf_array[i][j],QString::number(i)+","+QString::number(j)+","+QString::number(numberingcount));
                     }
                 }
             }
@@ -406,14 +403,18 @@ void DMFgui::on_enterButton_clicked()
 
 void DMFgui::buttonClicked(QString text)
 {
+    QStringList electrodeList;
+    electrodeList = text.split(",");
+//    ui->textEdit->insertPlainText("\n electrodeList: y: "+electrodeList.value(0)+" x: "+electrodeList.value(1)+" "+electrodeList.value(2));
 //    ui->label->setText(x);
 //    ui->textEdit->setPlainText(ui->label->text());
     if (elec ==1)
     {
-        electrode_1.x = text.at(1).unicode()-48; //converting from ASCII
-        electrode_1.y = text.at(0).unicode()-48;
+        electrode_1.x = electrodeList.value(1).toInt(); //converting from ASCII
+        electrode_1.y = electrodeList.value(0).toInt();
 
-        ui->textEdit->insertPlainText("\n electrode: " +QString::number(text.at(2).unicode()-48));
+        ui->textEdit->insertPlainText("\n electrode_1");
+        ui->textEdit->insertPlainText("\n electrode: " +electrodeList.value(2));
         ui->textEdit->insertPlainText("\n x coordinate: " +QString::number(electrode_1.x));
         ui->textEdit->insertPlainText("\n y coordinate: " +QString::number(electrode_1.y));
 
@@ -421,10 +422,11 @@ void DMFgui::buttonClicked(QString text)
     }
     else if(elec==2)
     {
-        electrode_2.x = text.at(1).unicode()-48;
-        electrode_2.y = text.at(0).unicode()-48;
+        electrode_2.x = electrodeList.value(1).toInt();
+        electrode_2.y = electrodeList.value(0).toInt();
 
-        ui->textEdit->insertPlainText("\n electrode: " +QString::number(text.at(2).unicode()-48));
+        ui->textEdit->insertPlainText("\n electrode_2");
+        ui->textEdit->insertPlainText("\n electrode: " + electrodeList.value(2));
         ui->textEdit->insertPlainText("\n x coordinate: " +QString::number(electrode_2.x));
         ui->textEdit->insertPlainText("\n y coordinate: " +QString::number(electrode_2.y));
 
@@ -434,13 +436,11 @@ void DMFgui::buttonClicked(QString text)
     //if addReservoir was called
     if (addRes)
     {
-        ui->textEdit->insertPlainText("\noutside the big loop: " + QString::number(added));
         if (added<resnum)
         {
            if (add_reservoir(newcolumn,newrow,resnum))
            {
                added++;
-               ui->textEdit->insertPlainText("\noutside the small loop: " + QString::number(added));
            }
         }
         else
@@ -450,7 +450,11 @@ void DMFgui::buttonClicked(QString text)
         }
     }
 
-//    save_to_String(text);
+    else
+    {
+        save_to_String(electrodeList.value(2));
+        //work on converting numbers > 9 into 10's 20's etc
+    }
 }
 
 bool DMFgui::add_reservoir(int column, int row, int resnum)
@@ -462,30 +466,25 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
     QPushButton *reservoir = new QPushButton;
     reservoir->setText("res");
     reservoir->setEnabled(false);//cannot press this button
+    reservoir->setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
 
     QPushButton *extra_elec = new QPushButton;
     extra_elec->setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
 
-    bool case2_out;
-
     int caseSwitch;
-    QString location = "";
 
     //the cases work fine. They're accurate
     if ((x_coord==2&&y_coord==2)||(x_coord==2&&y_coord==(row-3))||(x_coord==(column-3)&&y_coord==(row-3))||(x_coord==(column-3)&&y_coord==2))
     {
         caseSwitch = 2; //corner
-        ui->textEdit->insertPlainText("\n case 2");
     }
     else if (x_coord==2||x_coord==(column-3)||y_coord==2||y_coord==(row-3))
     {
         caseSwitch = 1; //not a corner
-        ui->textEdit->insertPlainText("\n case 1");
     }
     else
     {
         caseSwitch = 0; //not a valid reservoir
-        ui->textEdit->insertPlainText("\n case 0");
     }
 
     switch (caseSwitch)
@@ -498,22 +497,18 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
             //make a separate case for each 4 corners
             if (x_coord==2&&y_coord==2)
             {
-                ui->textEdit->insertPlainText("\n going in top-left");
                 corner = 1; //"top-left"
             }
             else if (x_coord==2&&y_coord==(row-3))
             {
-                ui->textEdit->insertPlainText("\n going in bottom-left");
                 corner = 4;//"bottom-left"
             }
             else if (x_coord==(column-3)&&y_coord==(row-3))
             {
-                ui->textEdit->insertPlainText("\n going in bottom-right");
                 corner = 3;//"bottom-right"
             }
             else if (x_coord==(column-3)&&y_coord==2)
             {
-                ui->textEdit->insertPlainText("\n got in of top-right");
                 corner = 2;//"top-right"
             }
 
@@ -521,7 +516,6 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
 
             if (location=="top")
             {
-                ui->textEdit->insertPlainText("\n inserting top");
                 gridLayout->addWidget(extra_elec,1,x_coord);
                 gridLayout->addWidget(reservoir,0,x_coord);
                 return true;
@@ -529,7 +523,6 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
             }
             if (location=="left")
             {
-                ui->textEdit->insertPlainText("\n inserting left");
                 gridLayout->addWidget(extra_elec,y_coord,1);
                 gridLayout->addWidget(reservoir,y_coord,0);
                 return true;
@@ -537,7 +530,6 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
             }
             if (location=="right")
             {
-                 ui->textEdit->insertPlainText("\n inserting right");
                 gridLayout->addWidget(extra_elec,y_coord,row-2);
                 gridLayout->addWidget(reservoir,y_coord,row-1);
                 return true;
@@ -545,7 +537,6 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
             }
             if (location=="bottom")
             {
-                 ui->textEdit->insertPlainText("\n inserting bottom");
                 gridLayout->addWidget(extra_elec,column-2,x_coord);
                 gridLayout->addWidget(reservoir,column-1,x_coord);
                 return true;
@@ -683,31 +674,30 @@ void DMFgui::on_UndoButton_clicked()
 QString DMFgui::openNewWindow(int corner)
 {
     dialog = new Dialog();
-    dialog->show();
+
     if (corner == 1)//"top-left"
     {
-        ui->textEdit->insertPlainText("\nthis works " + dialog->choice("topLeft"));
-        return dialog->choice("topLeft");
+        dialog->choice("topLeft");
+        dialog->exec();
+        return dialog->saved;
     }
     else if (corner == 2)//"top-right"
     {
-//        dialog->topRight();
-//        ui->textEdit->insertPlainText(dialog->on_buttonBox_accepted());
-//        return dialog->on_buttonBox_accepted();
+        dialog->choice("topRight");
+        dialog->exec();
+        return dialog->saved;
     }
     else if (corner == 3)//"bottom-right"
     {
-//        ui->textEdit->insertPlainText("\n got out of bottom-right");
-//        dialog->bottomRight();
-//        ui->textEdit->insertPlainText(dialog->on_buttonBox_accepted());
-//        return dialog->on_buttonBox_accepted();
+        dialog->choice("bottomRight");
+        dialog->exec();
+        return dialog->saved;
     }
     else if(corner == 4)//"bottom-left"
     {
-//        ui->textEdit->insertPlainText("\n got out of bottom-left");
-//        dialog->bottomLeft();
-//        ui->textEdit->insertPlainText(dialog->on_buttonBox_accepted());
-//        return dialog->on_buttonBox_accepted();
+        dialog->choice("bottomLeft");
+        dialog->exec();
+        return dialog->saved;
     }
 }
 
@@ -735,6 +725,7 @@ void DMFgui::on_autogen_Button_clicked()
         int a2=electrode_1.y;
         int a3=electrode_2.x;
         int a4=electrode_2.y;
-        autoGeneratePath(a1,a2,a3,a4,1);
+        ui->textEdit->insertPlainText("\n electrode_1.x" + QString::number(a1));
+        //autoGeneratePath(a1,a2,a3,a4,1);
         //testing purposes: autoGen = true;
 }
