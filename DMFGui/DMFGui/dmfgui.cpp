@@ -17,7 +17,6 @@
 QPushButton **dmf_array;
 QGridLayout *gridLayout;
 QSignalMapper *mapper;
-QPushButton *extra_elec;
 
 //used for numbering the electrodes
 int numberingcount = 0;
@@ -277,8 +276,7 @@ void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
       //save_to_String(retMap[m]);
   }
   //Set final electrode to blue
-  dmf_array[4][1].setStyleSheet("background-color:blue; border-style: outset ;border-width: 2px; border-color: grey");
-  dmf_array[2][3].setStyleSheet( "background-color:black; border-style: outset ;border-width: 2px; border-color: grey");
+  dmf_array[rowF][colF].setStyleSheet("background-color:blue; border-style: outset ;border-width: 2px; border-color: grey");
   ui->textEdit->insertPlainText("\ncolF: " +QString::number(colF));
   ui->textEdit->insertPlainText("\nrowF: " +QString::number(rowF));
 
@@ -494,16 +492,13 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
     int * coords = getRecent_Coordinates();
 
     //getting the most recent coordinates of pressed electrodes
-    int x_coord = coords[3];
-    int y_coord = coords[2];
+    int x_coord = coords[2];
+    int y_coord = coords[3];
 
     QPushButton *reservoir = new QPushButton;
     reservoir->setText("res");
     reservoir->setEnabled(false);//cannot press this button
     reservoir->setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
-
-    extra_elec = new QPushButton;
-    extra_elec->setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
 
     int caseSwitch;
 
@@ -525,7 +520,6 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
     {
         case 2:
             numberingcount++;
-            extra_elec->setText(QString::number(numberingcount));
 
             //ask user if they want a reservoir on the left or on the right
             //make a separate case for each 4 corners
@@ -533,15 +527,15 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
             {
                 corner = 1; //"top-left"
             }
-            else if (x_coord==2&&y_coord==(row-3))
+            else if (y_coord==2&&x_coord==(row-3))
             {
                 corner = 4;//"bottom-left"
             }
-            else if (x_coord==(column-3)&&y_coord==(row-3))
+            else if (y_coord==(column-3)&&x_coord==(row-3))
             {
                 corner = 3;//"bottom-right"
             }
-            else if (x_coord==(column-3)&&y_coord==2)
+            else if (y_coord==(column-3)&&x_coord==2)
             {
                 corner = 2;//"top-right"
             }
@@ -550,29 +544,29 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
 
             if (location=="top")
             {
-                gridLayout->addWidget(extra_elec,1,x_coord);
-                gridLayout->addWidget(reservoir,0,x_coord);
+                gridLayout->addWidget(reservoir,0,y_coord);
+                setMapping(y_coord,1);
                 return true;
                 break;
             }
             if (location=="left")
             {
-                gridLayout->addWidget(extra_elec,y_coord,1);
-                gridLayout->addWidget(reservoir,y_coord,0);
+                gridLayout->addWidget(reservoir,x_coord,0);
+                setMapping(1,x_coord);
                 return true;
                 break;
             }
             if (location=="right")
             {
-                gridLayout->addWidget(extra_elec,y_coord,row-2);
-                gridLayout->addWidget(reservoir,y_coord,row-1);
+                gridLayout->addWidget(reservoir,x_coord,row-1);
+                setMapping(row-2,x_coord);
                 return true;
                 break;
             }
             if (location=="bottom")
             {
-                gridLayout->addWidget(extra_elec,column-2,x_coord);
-                gridLayout->addWidget(reservoir,column-1,x_coord);
+                gridLayout->addWidget(reservoir,column-1,y_coord);
+                setMapping(y_coord,column-2);
                 return true;
                 break;
             }
@@ -581,38 +575,33 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
         case 1:
             //add new buttons depending on where the button clicked is (reservoir is hatched)
                 numberingcount++;
-                extra_elec->setText(QString::number(numberingcount));
 
                 //set booleans so that you don't get to click to same place twice
-                if (x_coord==2)//left column
+                if (y_coord==2)//left column
                 {
-                    gridLayout->addWidget(extra_elec,y_coord,1);
-                    gridLayout->addWidget(reservoir,y_coord,0);
-                    setMapping(1,y_coord);
+                    gridLayout->addWidget(reservoir,x_coord,0);
+                    setMapping(1,x_coord);
                     return true;
                     break;
                 }
-                else if (x_coord==(column-3)) //right column
+                else if (y_coord==(column-3)) //right column
                 {
-                    gridLayout->addWidget(extra_elec,y_coord,column-2);
-                    gridLayout->addWidget(reservoir,y_coord,column-1);
-                    setMapping(column-2,y_coord);
+                    gridLayout->addWidget(reservoir,x_coord,column-1);
+                    setMapping(column-2,x_coord);
                     return true;
                     break;
                 }
-                else if (y_coord==2)
+                else if (x_coord==2)
                 {
-                    gridLayout->addWidget(extra_elec,1,x_coord);
-                    gridLayout->addWidget(reservoir,0,x_coord);
-                    setMapping(x_coord,1);
+                    gridLayout->addWidget(reservoir,0,y_coord);
+                    setMapping(y_coord,1);
                     return true;
                     break;
                 }
-                else if(y_coord==(row-3))
+                else if(x_coord==(row-3))
                 {
-                    gridLayout->addWidget(extra_elec,row-2,x_coord);
-                    gridLayout->addWidget(reservoir,row-1,x_coord);
-                    setMapping(x_coord,row-2);
+                    gridLayout->addWidget(reservoir,row-1,y_coord);
+                    setMapping(y_coord,row-2);
                     return true;
                     break;
                 }
@@ -623,13 +612,13 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
     }
 }
 
-void DMFgui::setMapping(int x, int y)
+void DMFgui::setMapping(int y, int x)
 {
-    ui->textEdit->insertPlainText("\nhere");
+    dmf_array[x][y].setText(QString::number(numberingcount));
     dmf_array[x][y].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
-    gridLayout->addWidget(&dmf_array[x][y],y,x);
+    gridLayout->addWidget(&dmf_array[x][y],x,y);
     mapper->connect(&dmf_array[x][y],SIGNAL(clicked()),mapper,SLOT(map()));
-    mapper->setMapping(&dmf_array[x][y],QString::number(y)+","+QString::number(x)+","+QString::number(numberingcount));
+    mapper->setMapping(&dmf_array[x][y],QString::number(x)+","+QString::number(y)+","+QString::number(numberingcount));
 }
 
 int * DMFgui::getRecent_Coordinates(){
