@@ -612,13 +612,13 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
     }
 }
 
-void DMFgui::setMapping(int y, int x)
+void DMFgui::setMapping(int x, int y)
 {
-    dmf_array[x][y].setText(QString::number(numberingcount));
-    dmf_array[x][y].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
-    gridLayout->addWidget(&dmf_array[x][y],x,y);
-    mapper->connect(&dmf_array[x][y],SIGNAL(clicked()),mapper,SLOT(map()));
-    mapper->setMapping(&dmf_array[x][y],QString::number(x)+","+QString::number(y)+","+QString::number(numberingcount));
+    dmf_array[y][x].setText(QString::number(numberingcount));
+    dmf_array[y][x].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+    gridLayout->addWidget(&dmf_array[y][x],y,x);
+    mapper->connect(&dmf_array[y][x],SIGNAL(clicked()),mapper,SLOT(map()));
+    mapper->setMapping(&dmf_array[y][x],QString::number(y)+","+QString::number(x)+","+QString::number(numberingcount));
 }
 
 int * DMFgui::getRecent_Coordinates(){
