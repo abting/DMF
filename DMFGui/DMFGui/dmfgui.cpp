@@ -28,8 +28,6 @@ int elec = 1;
 QString to_Send = "";
 bool enter_Button_Clicked =false;
 
-QPushButton **point;
-
 bool addRes = false;
 int x;
 int y;
@@ -142,7 +140,7 @@ void DMFgui::on_resetButton_clicked()
 
 void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
 
-    //creates local variables
+    //creates local variables ... why?
     int trowI = rowI;
     int tcolI = colI;
     int trowF = rowF;
@@ -154,7 +152,9 @@ void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
     //Determine number of electrodes to be turned on
     int size = abs(trowI-trowF)+abs(tcolI-tcolF);
     size1 =size;
-    point[rowI][colI].setStyleSheet("background-color:yellow; border-style: outset ;border-width: 2px; border-color: grey");     //starting electrode becomes yellow
+    dmf_array[rowI][colI].setStyleSheet("background-color:yellow; border-style: outset ;border-width: 2px; border-color: grey");     //starting electrode becomes yellow
+    ui->textEdit->insertPlainText("\ncolI: " +QString::number(colI));
+    ui->textEdit->insertPlainText("\nrowI: " +QString::number(rowI));
 
     //Create an array containing xcoordinates and ycoordinates
     int *xcoord = new int [size];
@@ -271,15 +271,16 @@ void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
   //Create array of electrodes to be turned on and store in a String
   QString retMap [size];
   for (int m =0; m<size;m++){
-      retMap[m] = point[xcoord[m]][ycoord[m]].text();
+      retMap[m] = dmf_array[ycoord[m]][xcoord[m]].text();
       //Set electodes to be activated: green
-      point[ycoord[m]][xcoord[m]].setStyleSheet("background-color:green; border-style: outset ;border-width: 2px; border-color: grey");
-      save_to_String(retMap[m]);
+      dmf_array[ycoord[m]][xcoord[m]].setStyleSheet("background-color:green; border-style: outset ;border-width: 2px; border-color: grey");
+      //save_to_String(retMap[m]);
   }
   //Set final electrode to blue
-  point[rowF][colF].setStyleSheet("background-color:blue; border-style: outset ;border-width: 2px; border-color: grey");
-//  ui->textEdit->insertPlainText("\ncolF: " +QString::number(colF));
-//  ui->textEdit->insertPlainText("\nrowF: " +QString::number(rowF));
+  dmf_array[4][1].setStyleSheet("background-color:blue; border-style: outset ;border-width: 2px; border-color: grey");
+  dmf_array[2][3].setStyleSheet( "background-color:black; border-style: outset ;border-width: 2px; border-color: grey");
+  ui->textEdit->insertPlainText("\ncolF: " +QString::number(colF));
+  ui->textEdit->insertPlainText("\nrowF: " +QString::number(rowF));
 
   //Pointers used to turn colors off
   rcoord = ycoord;
@@ -290,10 +291,10 @@ void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
 // ** next step: allowing user to modify autogenerate path **
 void DMFgui::ClearColor(){
     if(autoGen == true){
-        point[firstR][firstC].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+        dmf_array[firstR][firstC].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
         for (int q=0;q<size1;q++){
             for(int r=0;r<size1;r++){
-            point[rcoord[q]][ccoord[r]].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+            dmf_array[rcoord[q]][ccoord[r]].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
             }
         }
     }
@@ -357,8 +358,6 @@ void DMFgui::on_enterButton_clicked()
             for(int i=0;i<newrow;i++){
                 dmf_array[i]=new QPushButton[newcolumn];
             }
-
-            point = dmf_array;
 
             QLabel *empty = new QLabel(this);
 
@@ -627,10 +626,10 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
 void DMFgui::setMapping(int x, int y)
 {
     ui->textEdit->insertPlainText("\nhere");
-//    gridLayout->addWidget(&dmf_array[x][y],y,x);
-    mapper->connect(extra_elec,SIGNAL(clicked()),mapper,SLOT(map()));
-    mapper->setMapping(extra_elec,QString::number(y)+","+QString::number(x)+","+QString::number(numberingcount));
-    //connect(mapper,SIGNAL(mapped(QString)),this,SLOT(buttonClicked(QString)));
+    dmf_array[x][y].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+    gridLayout->addWidget(&dmf_array[x][y],y,x);
+    mapper->connect(&dmf_array[x][y],SIGNAL(clicked()),mapper,SLOT(map()));
+    mapper->setMapping(&dmf_array[x][y],QString::number(y)+","+QString::number(x)+","+QString::number(numberingcount));
 }
 
 int * DMFgui::getRecent_Coordinates(){
