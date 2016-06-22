@@ -139,7 +139,65 @@ void DMFgui::on_resetButton_clicked()
 
 void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
 
-    //creates local variables ... why?
+    int currentrow = rowI;//y variable, getting called first
+    int currentcol = colI;//x variable
+
+    //for clearing purposes
+    firstR = rowI;
+    firstC = colI;
+
+    while(currentrow != rowF || currentcol != colF)
+    {
+        bool activated = false;
+        QStringList elecToCheck = findAvailableSpace(currentrow, currentcol).split(",");
+
+        if (elecToCheck.contains("top",Qt::CaseSensitive) && !activated)
+        {
+            if((currentrow-1)>=rowF) //then you're getting closer
+            {
+                currentrow --;
+                activate(currentrow,currentcol);
+                activated = true;
+            }
+        }
+        if(elecToCheck.contains("bottom",Qt::CaseSensitive)&& !activated)
+        {
+            if ((currentrow+1)<=rowF)
+            {
+                currentrow ++;
+                activate(currentrow,currentcol);
+                activated = true;
+            }
+        }
+        if(elecToCheck.contains("right",Qt::CaseSensitive)&& !activated)
+        {
+            if((currentcol+1)<=colF)
+            {
+                currentcol++;
+                activate(currentrow,currentcol);
+                activated = true;
+            }
+        }
+        if(elecToCheck.contains("left",Qt::CaseSensitive)&& !activated)
+        {
+            if((currentcol-1)>=colF)
+            {
+                currentcol--;
+                activate(currentrow,currentcol);
+                activated = true;
+            }
+        }
+        activated = false;
+    }
+    dmf_array[rowI][colI].setStyleSheet("background-color:yellow; border-style: outset ;border-width: 2px; border-color: grey");
+    dmf_array[rowF][colF].setStyleSheet("background-color:blue; border-style: outset ;border-width: 2px; border-color: grey");
+
+ /*
+ *
+ *  Kaleem's autogenerate path code.
+ *
+ *
+    //creates local variables
     int trowI = rowI;
     int tcolI = colI;
     int trowF = rowF;
@@ -268,7 +326,7 @@ void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
   }
 
   //Create array of electrodes to be turned on and store in a String
-  QString retMap [size];
+  QString *retMap  = new QString [size];
   for (int m =0; m<size;m++){
       retMap[m] = dmf_array[ycoord[m]][xcoord[m]].text();
       //Set electodes to be activated: green
@@ -284,6 +342,43 @@ void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
   rcoord = ycoord;
   ccoord = xcoord;
   autoGen = true;
+    *
+    *
+    *
+    * end of Kaleem's autogenerate path code
+  */
+}
+
+//finds which electrodes are available next to the current electrode
+QString DMFgui::findAvailableSpace(int y, int x){
+    QString availElec = "";
+
+    //check on top of the current electrode
+    if (dmf_array[y-1][x].text()!="")
+    {
+        availElec += "top,";
+    }
+    //check bottom of current electrode
+    if (dmf_array[y+1][x].text()!="")
+    {
+        availElec += "bottom,";
+    }
+    //check to the left of current electrode
+    if (dmf_array[y][x-1].text()!="")
+    {
+        availElec += "left,";
+    }
+    //check to the right of current electrode
+    if (dmf_array[y][x+1].text()!="")
+    {
+        availElec += "right,";
+    }
+    return availElec;
+}
+void DMFgui::activate(int y, int x)
+{
+    save_to_String(dmf_array[y][x].text());
+    dmf_array[y][x].setStyleSheet("background-color:green; border-style: outset ;border-width: 2px; border-color: grey");
 }
 
 // ** next step: allowing user to modify autogenerate path **
@@ -302,7 +397,6 @@ void DMFgui::on_exitButton_clicked()
 {
     QApplication::quit();
 }
-
 void DMFgui::on_sendButton_clicked()
 {
     QMessageBox::StandardButton reply;
@@ -320,7 +414,6 @@ void DMFgui::on_sendButton_clicked()
     }
     //automatically go back if user is not sure
 }
-
 void DMFgui::on_enterButton_clicked()
 {
     //get the texts from the textEdits
@@ -356,19 +449,19 @@ void DMFgui::on_enterButton_clicked()
             for(int i=0;i<newrow;i++){
                 dmf_array[i]=new QPushButton[newcolumn];
             }
-
-            QLabel *empty = new QLabel(this);
-
             //naming each of the electrodes
             for (int i=0;i<newrow;i++)
             {
                 //count++;
                 for (int j=0;j<newcolumn;j++)
                 {
-                    //set the edge spaces as null
+                    //add empty and unclickable buttons on the sides
                     if (i==0||i==1||j==0||j==1||i==drow+3||i==drow+2||j==dcolumn+3||j==dcolumn+2)
                     {
-                        gridLayout->addWidget(empty,i,j);
+                        dmf_array[i][j].setText("");
+                        dmf_array[i][j].setEnabled(false);
+                        dmf_array[i][j].setStyleSheet("background-color:white;border:none");
+                        gridLayout->addWidget(&dmf_array[i][j],i,j);
                     }
                     else
                     {
@@ -614,6 +707,7 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
 
 void DMFgui::setMapping(int x, int y)
 {
+    dmf_array[y][x].setEnabled(true);
     dmf_array[y][x].setText(QString::number(numberingcount));
     dmf_array[y][x].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
     gridLayout->addWidget(&dmf_array[y][x],y,x);
@@ -639,7 +733,6 @@ int * DMFgui::getRecent_Coordinates(){
     }
     return recentCoord;
 }
-
 
 void DMFgui::updateDMF(QString to_Send)
 {

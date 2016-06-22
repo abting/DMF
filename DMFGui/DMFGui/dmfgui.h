@@ -38,6 +38,8 @@ private slots:
     bool add_reservoir(int,int,int);
     void buttonClicked(QString);
     void autoGeneratePath(int,int,int, int, int);
+    QString findAvailableSpace(int, int);
+    void activate(int,int);
     void ClearColor();
 
     void updateDMF(QString);
