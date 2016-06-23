@@ -6,6 +6,7 @@
 #include <QGraphicsItem>
 #include <QMouseEvent>
 #include "fgen.h"
+#include "dialog.h"
 
 namespace Ui {
 class DMFgui;
@@ -20,39 +21,26 @@ public:
     ~DMFgui();
 
     void mousePressEvent(QMouseEvent *e);
+    QString location = "";
+
+public slots:
+    QString openNewWindow(int);
+
 private slots:
 
     void on_mixButton_clicked();
-
     void on_sequenceButton_clicked();
-
     void on_splitButton_clicked();
-
     void on_resetButton_clicked();
-
     void on_exitButton_clicked();
-
     void on_sendButton_clicked();
-
-    void on_button_1_clicked();
-
-    void on_button_2_clicked();
-
-    void on_button_3_clicked();
-
-    void on_button_4_clicked();
-
-    void on_button_5_clicked();
-
-    void on_button_6_clicked();
-
-    void on_button_7_clicked();
-
-    void on_button_8_clicked();
-
-    void on_button_9_clicked();
-
-    void on_button_10_clicked();
+    void on_enterButton_clicked();
+    bool add_reservoir(int,int,int);
+    void buttonClicked(QString);
+    void autoGeneratePath(int,int,int, int, int);
+    QString findAvailableSpace(int, int);
+    void activate(int,int);
+    void ClearColor();
 
     void updateDMF(QString);
 
@@ -60,17 +48,21 @@ private slots:
 
     void on_UndoButton_clicked();
 
-    void set_Scene();
+//    void set_Scene();
 
-    void on_loadButton_clicked();
-
-    void on_NumberButton_clicked();
-
+//    void on_loadButton_clicked();
 
     void on_Voltage_SendButton_clicked();
 
+    void on_autogen_Button_clicked();
+
+    int* getRecent_Coordinates();
+
+    void setMapping(int, int);
+
 private:
     Ui::DMFgui *ui;
+    Dialog *dialog;
 
     //initializing arduino here
     QSerialPort *arduino;
