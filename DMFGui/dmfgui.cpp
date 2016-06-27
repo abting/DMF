@@ -39,6 +39,9 @@ int size1;
 int firstR,firstC;
 boolean autoGen = false;
 
+//for nemesys
+double flowRate;
+double volume;
 
 struct coordinates
 {
@@ -56,6 +59,13 @@ DMFgui::DMFgui(QWidget *parent) :
     arduino_port_name = "";
 
     ui->textEdit->setReadOnly(true); //not allowing user to change anything
+
+    //for Nemesys
+    ui->targetVolumeEdit->setReadOnly(true);
+    ui->targetFlowRateEdit->setReadOnly(true);
+    ui->unitsComboBox->addItem("mL");
+    ui->unitsComboBox->addItem("μL");
+    ui->unitsComboBox->addItem("nL");
 
     //defining arduino here
     arduino=new QSerialPort;
@@ -828,10 +838,15 @@ void DMFgui::mousePressEvent(QMouseEvent *e)
 void DMFgui::on_Voltage_SendButton_clicked()
 {
     //read from the line edit then save as a float
-   QString voltage = ui->lineEdit->text(); //gets the text that you've entered
+   //QString voltage = ui->lineEdit->text(); //gets the text that you've entered
 
-    float to_Send = voltage.toFloat();
+    //float to_Send = voltage.toFloat();
     //connect to the fgen class (generate the commands from there)
+
+    testing = new Testing();
+
+    testing->helloWorld();
+
 }
 
 void DMFgui::on_autogen_Button_clicked()
@@ -845,4 +860,35 @@ void DMFgui::on_autogen_Button_clicked()
        int a4 = z[3];
         //Path 1 is set as a default
         autoGeneratePath(a1,a2,a3,a4,1);
+}
+
+void DMFgui::on_targetVolume_clicked()
+{
+    ui->targetFlowRateEdit->setReadOnly(true);
+    //allowing for the value to be changed
+    ui->targetVolumeEdit->setReadOnly(false);
+    volume = ui->targetVolumeEdit->text().toDouble();
+}
+
+void DMFgui::on_targetFlow_clicked()
+{
+    ui->targetVolumeEdit->setReadOnly(true);
+    //allowing for the value to be changed
+    ui->targetFlowRateEdit->setReadOnly(false);
+    flowRate = ui->targetFlowRateEdit->text().toDouble();
+}
+
+void DMFgui::on_enterButton_2_clicked(volume,flowRate)
+{
+    //update the current Values
+}
+
+void DMFgui::on_refillButton_clicked(flowRate)
+{
+    //call the refill function in nemesys
+}
+
+void DMFgui::on_emptyButton_clicked(flowRate)
+{
+    //call the empty function in nemesys
 }

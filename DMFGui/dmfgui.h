@@ -7,6 +7,8 @@
 #include <QMouseEvent>
 #include "fgen.h"
 #include "dialog.h"
+#include "testing.h"
+#include "nemesys.h"
 
 namespace Ui {
 class DMFgui;
@@ -60,9 +62,21 @@ private slots:
 
     void setMapping(int, int);
 
+    void on_targetVolume_clicked();
+
+    void on_targetFlow_clicked();
+
+    void on_enterButton_2_clicked(double,double);
+
+    void on_refillButton_clicked(double);
+
+    void on_emptyButton_clicked(double);
+
 private:
     Ui::DMFgui *ui;
     Dialog *dialog;
+    Testing *testing;
+    Nemesys *nemesys;
 
     //initializing arduino here
     QSerialPort *arduino;

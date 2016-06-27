@@ -15,10 +15,14 @@ TEMPLATE = app
 
 SOURCES += main.cpp\
         dmfgui.cpp \
-    dialog.cpp
+    dialog.cpp \
+    testing.cpp \
+    nemesys.cpp
 
 HEADERS  += dmfgui.h \
-    dialog.h
+    dialog.h \
+    testing.h \
+    nemesys.h
 
 FORMS    += dmfgui.ui \
     dialog.ui
