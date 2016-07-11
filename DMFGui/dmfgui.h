@@ -37,12 +37,14 @@ private slots:
     void on_exitButton_clicked();
     void on_sendButton_clicked();
     void on_enterButton_clicked();
-    bool add_reservoir(int,int,int);
+    bool add_reservoir();
     void buttonClicked(QString);
     void autoGeneratePath(int,int,int, int, int);
     QString findAvailableSpace(int, int);
+    QString findEmptySpace(int, int);
     void activate(int,int);
     void ClearColor();
+    int get_Fvalue(int,int,int,int,int,int);
 
     void updateDMF(QString);
 
@@ -66,11 +68,9 @@ private slots:
 
     void on_targetFlow_clicked();
 
-    void on_enterButton_2_clicked(double,double);
+    void on_enterButton_2_clicked();
 
-    void on_refillButton_clicked(double);
-
-    void on_emptyButton_clicked(double);
+    void map_reservoir(int,int);
 
 private:
     Ui::DMFgui *ui;

@@ -15,27 +15,23 @@ Dialog::~Dialog()
     delete ui;
 }
 
-void Dialog::choice(QString position)
+void Dialog::choice(QStringList positions)
 {
-    if (position == "topLeft")
+    if (positions.contains("top",Qt::CaseSensitive))
     {
         ui->comboBox->addItem("top");
-        ui->comboBox->addItem("left");
     }
-    else if (position == "topRight")
-    {
-        ui->comboBox->addItem("top");
-        ui->comboBox->addItem("right");
-    }
-    else if (position == "bottomRight")
+    if (positions.contains("bottom",Qt::CaseSensitive))
     {
         ui->comboBox->addItem("bottom");
-        ui->comboBox->addItem("right");
     }
-    else if (position == "bottomLeft")
+    if (positions.contains("left",Qt::CaseSensitive))
     {
-        ui->comboBox->addItem("bottom");
         ui->comboBox->addItem("left");
+    }
+    if (positions.contains("right",Qt::CaseSensitive))
+    {
+        ui->comboBox->addItem("right");
     }
 }
 

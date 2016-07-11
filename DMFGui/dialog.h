@@ -22,7 +22,7 @@ public slots:
 //    void bottomLeft();
 //    void bottomRight();
 
-    void choice(QString);
+    void choice(QStringList);
 private slots:
 
     void on_okButton_clicked();

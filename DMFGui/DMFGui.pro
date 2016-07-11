@@ -30,3 +30,5 @@ FORMS    += dmfgui.ui \
 RESOURCES += \
     dmf_scene_v2.qrc \
     container.qrc
+
+
