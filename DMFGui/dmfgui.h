@@ -5,12 +5,12 @@
 #include <QSerialPort>
 #include <QGraphicsItem>
 #include <QMouseEvent>
-#include "funcgen.h"
+#include "fgen.h"
 #include "dialog.h"
-#include "visa.h"
-#include "visatype.h"
+#include "testing.h"
 #include "nemesys.h"
-using namespace std;
+#include "node.h"
+
 namespace Ui {
 class DMFgui;
 }
@@ -29,12 +29,6 @@ public:
 public slots:
     QString openNewWindow(int);
 
-    void on_Voltage_SendButton_clicked();
-
-    void on_OpenButton_clicked();
-
-    void on_CloseButton_clicked();
-
 private slots:
 
     void on_mixButton_clicked();
@@ -44,12 +38,15 @@ private slots:
     void on_exitButton_clicked();
     void on_sendButton_clicked();
     void on_enterButton_clicked();
-    bool add_reservoir(int,int,int);
+    bool add_reservoir();
     void buttonClicked(QString);
-    void autoGeneratePath(int,int,int, int, int);
+    QString autoGeneratePath(const int &,const int &,const int &,const int &);
+    void resetMaps();
     QString findAvailableSpace(int, int);
-    void activate(int,int);
+    QString findEmptySpace(int, int);
+    void activate(int,int,int);
     void ClearColor();
+    int get_Fvalue(int,int,int,int,int,int);
 
     void updateDMF(QString);
 
@@ -61,44 +58,25 @@ private slots:
 
 //    void on_loadButton_clicked();
 
+    void on_Voltage_SendButton_clicked();
+
     void on_autogen_Button_clicked();
 
     int* getRecent_Coordinates();
 
     void setMapping(int, int);
 
-    void on_doseButton_clicked();
-
     void on_targetVolume_clicked();
 
     void on_targetFlow_clicked();
 
-    void nemesysNotOpenedErrorMessage();
+    void on_enterButton_2_clicked();
 
-    void nemesysAlreadyOpenedMessage();
-
-    void on_emptyButton_clicked();
-
-    void nemesysDosingMessage();
-
-    void nemesysCalibrateMessage();
-
-    void on_refillButton_clicked();
-
-    void on_CalibrateButton_clicked();
-
-    void closeEvent(QCloseEvent *);
-
-    void on_StopButton_clicked();
-
-    void on_MonitorButton_toggled(bool checked);
-
-    void on_MButton_clicked();
-
+    void map_reservoir(int,int);
 private:
     Ui::DMFgui *ui;
     Dialog *dialog;
-    funcGen *funcgen;
+    Testing *testing;
     Nemesys *nemesys;
 
     //initializing arduino here

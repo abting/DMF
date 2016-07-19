@@ -35,8 +35,8 @@
     <widget class="QGroupBox" name="commandGroup">
      <property name="geometry">
       <rect>
-       <x>20</x>
-       <y>290</y>
+       <x>420</x>
+       <y>0</y>
        <width>201</width>
        <height>51</height>
       </rect>
@@ -71,8 +71,8 @@
     <widget class="QGroupBox" name="SerialMonitorGroup">
      <property name="geometry">
       <rect>
-       <x>410</x>
-       <y>10</y>
+       <x>420</x>
+       <y>60</y>
        <width>441</width>
        <height>251</height>
       </rect>
@@ -166,20 +166,20 @@
       </rect>
      </property>
      <property name="text">
-      <string>Rows:</string>
+      <string>Rows: (y)</string>
      </property>
     </widget>
     <widget class="QLabel" name="label_3">
      <property name="geometry">
       <rect>
-       <x>20</x>
+       <x>10</x>
        <y>50</y>
-       <width>47</width>
-       <height>13</height>
+       <width>61</width>
+       <height>16</height>
       </rect>
      </property>
      <property name="text">
-      <string>Columns:</string>
+      <string>Columns: (x)</string>
      </property>
     </widget>
     <widget class="QLineEdit" name="rowEdit">
@@ -218,8 +218,8 @@
     <widget class="QPushButton" name="autogen_Button">
      <property name="geometry">
       <rect>
-       <x>250</x>
-       <y>300</y>
+       <x>640</x>
+       <y>20</y>
        <width>91</width>
        <height>23</height>
       </rect>
@@ -280,7 +280,7 @@
     <widget class="QComboBox" name="unitsComboBox">
      <property name="geometry">
       <rect>
-       <x>100</x>
+       <x>70</x>
        <y>20</y>
        <width>51</width>
        <height>16</height>
@@ -290,34 +290,34 @@
     <widget class="QLabel" name="label_7">
      <property name="geometry">
       <rect>
-       <x>30</x>
+       <x>40</x>
        <y>20</y>
-       <width>61</width>
-       <height>16</height>
+       <width>47</width>
+       <height>13</height>
       </rect>
      </property>
      <property name="text">
-      <string>Volume Units:</string>
+      <string>Units:</string>
      </property>
     </widget>
-    <widget class="QPushButton" name="doseButton">
+    <widget class="QPushButton" name="enterButton_2">
      <property name="geometry">
       <rect>
-       <x>10</x>
+       <x>30</x>
        <y>180</y>
        <width>51</width>
        <height>23</height>
       </rect>
      </property>
      <property name="text">
-      <string>Dose</string>
+      <string>Enter</string>
      </property>
     </widget>
     <widget class="QGroupBox" name="groupBox_2">
      <property name="geometry">
       <rect>
        <x>30</x>
-       <y>80</y>
+       <y>60</y>
        <width>171</width>
        <height>91</height>
       </rect>
@@ -401,7 +401,7 @@
     <widget class="QPushButton" name="refillButton">
      <property name="geometry">
       <rect>
-       <x>70</x>
+       <x>90</x>
        <y>180</y>
        <width>61</width>
        <height>23</height>
@@ -414,7 +414,7 @@
     <widget class="QPushButton" name="emptyButton">
      <property name="geometry">
       <rect>
-       <x>140</x>
+       <x>160</x>
        <y>180</y>
        <width>61</width>
        <height>23</height>
@@ -427,7 +427,7 @@
     <widget class="QGroupBox" name="groupBox_3">
      <property name="geometry">
       <rect>
-       <x>270</x>
+       <x>260</x>
        <y>60</y>
        <width>221</width>
        <height>141</height>
@@ -485,7 +485,7 @@
        </rect>
       </property>
      </widget>
-     <widget class="QLineEdit" name="TargetMonitorFlowRate">
+     <widget class="QLineEdit" name="lineEdit_3">
       <property name="geometry">
        <rect>
         <x>80</x>
@@ -495,7 +495,7 @@
        </rect>
       </property>
      </widget>
-     <widget class="QLineEdit" name="TargetMonitorSyringeLevel">
+     <widget class="QLineEdit" name="lineEdit_4">
       <property name="geometry">
        <rect>
         <x>90</x>
@@ -506,147 +506,6 @@
       </property>
      </widget>
     </widget>
-    <widget class="QPushButton" name="OpenButton">
-     <property name="geometry">
-      <rect>
-       <x>260</x>
-       <y>20</y>
-       <width>91</width>
-       <height>23</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Open NemeSYS</string>
-     </property>
-    </widget>
-    <widget class="QPushButton" name="CloseButton">
-     <property name="geometry">
-      <rect>
-       <x>370</x>
-       <y>20</y>
-       <width>91</width>
-       <height>23</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Close NemeSYS</string>
-     </property>
-    </widget>
-    <widget class="QLabel" name="label_10">
-     <property name="geometry">
-      <rect>
-       <x>30</x>
-       <y>50</y>
-       <width>81</width>
-       <height>16</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Flow rate Units</string>
-     </property>
-    </widget>
-    <widget class="QComboBox" name="funitscomboBox">
-     <property name="geometry">
-      <rect>
-       <x>120</x>
-       <y>50</y>
-       <width>69</width>
-       <height>16</height>
-      </rect>
-     </property>
-    </widget>
-    <widget class="QLabel" name="label_11">
-     <property name="geometry">
-      <rect>
-       <x>590</x>
-       <y>20</y>
-       <width>71</width>
-       <height>16</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Dosing Units</string>
-     </property>
-    </widget>
-    <widget class="QComboBox" name="dosingUnitscomboBox">
-     <property name="geometry">
-      <rect>
-       <x>660</x>
-       <y>20</y>
-       <width>71</width>
-       <height>20</height>
-      </rect>
-     </property>
-    </widget>
-    <widget class="QPushButton" name="CalibrateButton">
-     <property name="geometry">
-      <rect>
-       <x>480</x>
-       <y>20</y>
-       <width>81</width>
-       <height>23</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Calibrate</string>
-     </property>
-    </widget>
-    <widget class="QPushButton" name="StopButton">
-     <property name="geometry">
-      <rect>
-       <x>210</x>
-       <y>180</y>
-       <width>51</width>
-       <height>23</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Stop</string>
-     </property>
-    </widget>
-    <widget class="QRadioButton" name="MonitorButton">
-     <property name="geometry">
-      <rect>
-       <x>330</x>
-       <y>230</y>
-       <width>82</width>
-       <height>17</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Monitor</string>
-     </property>
-    </widget>
-    <widget class="QRadioButton" name="MButton">
-     <property name="geometry">
-      <rect>
-       <x>330</x>
-       <y>260</y>
-       <width>82</width>
-       <height>17</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>RadioButton</string>
-     </property>
-    </widget>
-    <zorder>MButton</zorder>
-    <zorder>unitsComboBox</zorder>
-    <zorder>label_7</zorder>
-    <zorder>doseButton</zorder>
-    <zorder>groupBox_2</zorder>
-    <zorder>refillButton</zorder>
-    <zorder>emptyButton</zorder>
-    <zorder>groupBox_3</zorder>
-    <zorder>OpenButton</zorder>
-    <zorder>CloseButton</zorder>
-    <zorder>label_10</zorder>
-    <zorder>funitscomboBox</zorder>
-    <zorder>label_11</zorder>
-    <zorder>dosingUnitscomboBox</zorder>
-    <zorder>CalibrateButton</zorder>
-    <zorder>StopButton</zorder>
-    <zorder>MonitorButton</zorder>
    </widget>
   </widget>
  </widget>
