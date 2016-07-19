@@ -633,7 +633,7 @@ QString DMFgui::autoGeneratePath(const int & xStart,const int & yStart,const int
 
 //    //while priority queue is not empty, continue
     while(!stack[index].empty()){
-//    for (int j=0;j<4;j++){
+
         ui->textEdit->insertPlainText("\n start of loop\n");
         auto min = std::min_element( stack[index].begin(), stack[index].end(),
                                      []( const node &a, const node &b )
@@ -699,12 +699,18 @@ QString DMFgui::autoGeneratePath(const int & xStart,const int & yStart,const int
                 ui->textEdit->insertPlainText("\n neighborX:"+ QString::number(neighborX));
                 ui->textEdit->insertPlainText("\n neighborY:"+ QString::number(neighborY));
                 //means that it's unavailable
+
+                ui->textEdit->insertPlainText("\n X newcolumn:"+ QString::number(newcolumn));
+                ui->textEdit->insertPlainText("\n Y newrow:"+ QString::number(newrow));
+
             if (dmf_array[neighborY][neighborX].text()==""){
                 closedNodes[neighborX][neighborY]==1;
-                ui->textEdit->insertPlainText("in closedNodes");
+                ui->textEdit->insertPlainText(" in closedNodes");
             }
+
             //TODO: use the code writen for check if avaiable or something
             //ignore if it's on the closed list or if it has been marked as unavailable
+
             else if (!(neighborX<0||neighborY<0||neighborX>horizontalSize||neighborY>verticalSize||closedNodes[neighborX][neighborY]==1)){
                 //if it gets here, then generate a neighbor Node
                 neighborNode = new node(neighborX,
@@ -737,7 +743,7 @@ QString DMFgui::autoGeneratePath(const int & xStart,const int & yStart,const int
                     //updating fscore inside openNodes
                     openNodes[neighborX][neighborY] = neighborNode->getPriority();
                     //update the parent node
-                    dir_map[neighborX][neighborY]=(0+dir/2)%dir;
+                    dir_map[neighborX][neighborY]=(i+dir/2)%dir;
                     while (!(min->getxPos()==neighborX && min->getyPos()==neighborY)){
                         stack[1-index].push(*min);
                         stack[index].erase(min);
