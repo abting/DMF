@@ -73,9 +73,27 @@ private slots:
 
     void on_targetFlow_clicked();
 
-    void nemesysErrorMessage();
+    void nemesysNotOpenedErrorMessage();
+
+    void nemesysAlreadyOpenedMessage();
 
     void on_emptyButton_clicked();
+
+    void nemesysDosingMessage();
+
+    void nemesysCalibrateMessage();
+
+    void on_refillButton_clicked();
+
+    void on_CalibrateButton_clicked();
+
+    void closeEvent(QCloseEvent *);
+
+    void on_StopButton_clicked();
+
+    void on_MonitorButton_toggled(bool checked);
+
+    void on_MButton_clicked();
 
 private:
     Ui::DMFgui *ui;

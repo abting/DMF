@@ -23,16 +23,25 @@ typedef int(__stdcall *NCS_Open)(unsigned char, ncs_hdl*);
 typedef int(__stdcall *NCS_Close)(ncs_hdl);
 typedef int(__stdcall *NCS_Errormsg)(long, char*, unsigned long);
 typedef int(__stdcall *NCS_Dose)(ncs_hdl, unsigned char, double*, double*);
+typedef int(__stdcall *NCS_Calib)(ncs_hdl, unsigned char);
 typedef int(__stdcall *NCS_Empty)(ncs_hdl, unsigned char, double*);
 typedef int(__stdcall *NCS_Refill)(ncs_hdl, unsigned char, double*);
 typedef int(__stdcall *NCS_FlowRate)(ncs_hdl, unsigned char, double*);
 typedef int(__stdcall *NCS_isDoseF)(ncs_hdl, unsigned char);
+typedef int(__stdcall *NCS_isCalibF)(ncs_hdl, unsigned char);
 typedef int(__stdcall *NCS_gActiveFlowUnit)(ncs_hdl, unsigned char);
 typedef int(__stdcall *NCS_gActiveVolumeUnit)(ncs_hdl, unsigned char);
 typedef int(__stdcall *NCS_sActiveFlowUnit)(ncs_hdl, unsigned char, unsigned char);
 typedef int(__stdcall *NCS_sActiveVolumeUnit)(ncs_hdl, unsigned char, unsigned char);
 typedef int(__stdcall *NCS_gActualFlowRate)(ncs_hdl, unsigned char, double*);
 typedef int(__stdcall *NCS_gActualSyringeLevel)(ncs_hdl, unsigned char, double*);
+typedef int(__stdcall *NCS_stopUnit)(ncs_hdl, unsigned char);
+typedef int(__stdcall *NCS_stopAllUnits)(ncs_hdl);
+typedef int(__stdcall *NCS_gSyringeLevels)(ncs_hdl, unsigned char, double*, double*);
+
+
+
+int NemeSYSdelay = 500; //DELAY AFTER OPENING AND BEFORE CLOSING
 
 HINSTANCE hGetProcIDDLL;
 
@@ -42,10 +51,6 @@ HINSTANCE hGetProcIDDLL;
 static ncs_hdl hDev = 0; // stores device handle
 
 Nemesys::Nemesys()
-{
-
-}
-void Nemesys::testing()
 {
 
 }
@@ -84,8 +89,9 @@ long InitNemesysDev(void)
 
 
     NCS_Open open = (NCS_Open)GetProcAddress(hGetProcIDDLL, "NCS_OpenDevice");
-    if (!open) {
-        cout << "failure";
+    if (!open)
+    {
+        cout << "Failure to load OpenNemesysDev function";
         return -1;
     }
     //
@@ -97,6 +103,7 @@ long InitNemesysDev(void)
     if (ERR_NOERR != ErrCode)
     {
         HandleError(ErrCode);
+        cout << " OpenNemesysDev Error: " << ErrCode;
     }
 
     return ErrCode;
@@ -113,9 +120,9 @@ long CloseNemesysDev(void)
     // obtained from NCS_OpenDevice().
     //
     NCS_Close close = (NCS_Close)GetProcAddress(hGetProcIDDLL, "NCS_CloseDevice");
-    if (!close) {
-        cout << "failure";
-        return -1;
+    if (!close)
+    {
+         cout << "Failure to load CloseNemesysDev function";
     }
     if (hDev)
     {
@@ -123,155 +130,181 @@ long CloseNemesysDev(void)
         if (ERR_NOERR != ErrCode)
         {
             HandleError(ErrCode);
+            cout << " CloseNemesysDev Error: " << ErrCode;
         }
     }
     return ErrCode;
 }
+
 //===========================================================================
-// Function checks if the actual flow rate abd returns the value (double)
-// Displays the flow rate
+// Function checks the actual flow rate and returns the value (double)
+// Will be used to monitor the actual syringe level
 //===========================================================================
-void getActualFlowRate() {
+double Nemesys::getActualFlowRate(unsigned char doseUnit) {
     NCS_gActualFlowRate getflowrate = (NCS_gActualFlowRate)GetProcAddress(hGetProcIDDLL, "NCS_GetFlowRateIs");
-    if (!getflowrate) {
-        cout << "failure";
-        //return -1;
+    if (!getflowrate)
+    {
+        cout << "Failure to load getActualFlowRate function";
     }
     double aFlowRate;
-    long ErrCode = getflowrate(hDev, 0, &aFlowRate);
-    if (ErrCode <0) {
-        cout << "error";
-        //return -1;
+    long ErrCode = getflowrate(hDev, doseUnit, &aFlowRate);
+    if (ERR_NOERR != ErrCode)
+    {
+        HandleError(ErrCode);
+        cout << " getActual FlowRate Error: " << ErrCode;
+        return -1;
     }
-    cout << "\nActual Flow Rate is: " << aFlowRate << "\n";
+    return aFlowRate;
 }
+
 //===========================================================================
-// Function checks if the actual syringe level and returns the value (double)
-// Displays the syringe level
+// Function checks the actual flow rate and returns the value (double)
+// Will be used to monitor the actual syringe level
 //===========================================================================
-void getActualSyringeLevel() {
+double Nemesys::getActualSyringeLevel(unsigned char doseUnit) {
     NCS_gActualSyringeLevel getsyringelevel = (NCS_gActualSyringeLevel)GetProcAddress(hGetProcIDDLL, "NCS_GetSyringeLevelIs");
-    if (!getsyringelevel) {
-        cout << "failure";
-        //return -1;
+    if (!getsyringelevel)
+    {
+        cout << "Failure to load getSyringeLevel function";
     }
     double aSyringeLevel;
-    long ErrCode = getsyringelevel(hDev, 0, &aSyringeLevel);
-    if (ErrCode <0) {
-        cout << "error";
-        //return -1;
+    long ErrCode = getsyringelevel(hDev, doseUnit, &aSyringeLevel);
+    if (ERR_NOERR != ErrCode)
+    {
+        HandleError(ErrCode);
+        cout << " getActual SyringeLevel Error: " << ErrCode;
+        return -1;
     }
-    cout << "\nActual SyringeLevel is: " << aSyringeLevel << "\n";
+    return aSyringeLevel;
 }
-//===========================================================================
-// Function checks if the dosing unit is still dosing, if it is, it remains in this loop until dosing is done
-// At this point, you can move to the next function (command)
-// Sleep is required before using this function
-//===========================================================================
 
-void CheckDosingStatus() {
+//===========================================================================
+// Function checks if the dosing unit is still DOSING
+// Returns 0 if it is not finished
+// Returns 1 if it is finished
+// Returns <0 if there is an error
+//===========================================================================
+long Nemesys::CheckDosingStatus(unsigned char doseUnit) {
 
     NCS_isDoseF doseFin = (NCS_isDoseF)GetProcAddress(hGetProcIDDLL, "NCS_IsDosingFinished");
-    if (!doseFin) {
-        cout << "failure";
+    if (!doseFin)
+    {
+        cout << "Failure to load CheckDosingStatus function";
     }
-    long ErrCode = doseFin(hDev, 0);
-    while (ErrCode != 1) {
-        Sleep(500);
-        ErrCode = doseFin(hDev, 0);
-        cout << "Dosing is occurring";
-        //getActualFlowRate();
-        //getActualSyringeLevel();
-    }
-    cout << "out of loop \n";
-    cout << ErrCode;
-
+    long ErrCode = doseFin(hDev, doseUnit);
+    cout << " Dosingstatus error: " << ErrCode;
+    return ErrCode;
 }
 
 //===========================================================================
-//Doses at a certain volume at a certain rate
-//Proper use of the parameters is yet to be determined
+// Function checks if the dosing unit is still CALIBRATING
+// Returns 0 if it is not finished
+// Returns 1 if it is finished
+// Returns <0 if there is an error
+//===========================================================================
+long Nemesys::CheckCalibrateStatus(unsigned char doseUnit) {
+
+    NCS_isCalibF calibFin = (NCS_isCalibF)GetProcAddress(hGetProcIDDLL, "NCS_IsCalibrationFinished");
+    if (!calibFin)
+    {
+        cout << "Failure to load CheckCalibrationStatus function";
+    }
+    long ErrCode = calibFin(hDev, doseUnit);
+    cout <<" Calibration Status Error: " << ErrCode;
+    return ErrCode;
+}
+
+//===========================================================================
+//Doses a given volume at a given rate
+//Proper use of the parameters is needs to be determined (i.e. how to aspirate or dispense; positive or negative)
+//Units are set to the active flow unit
 //===========================================================================
 
-void Nemesys::DoseVolume(double vol, double flo) {
+void Nemesys::DoseVolume(unsigned char doseUnit, double vol, double flo) {
     NCS_Dose dose = (NCS_Dose)GetProcAddress(hGetProcIDDLL, "NCS_DoseVolume");
 
-    if (!dose) {
-        cout << "failure";
-
+    if (!dose)
+    {
+        cout << "Failure to load DOSE UNIT function";
     }
-    long ErrCode = dose(hDev, 0, &vol, &flo);
+    long ErrCode = dose(hDev, doseUnit, &vol, &flo);
     if (ERR_NOERR != ErrCode)
     {
         HandleError(ErrCode);
-        //cout << ErrCode;
-        cout << "inside handle error";
+        cout << "INSIDE DOSING ERROR: " << ErrCode;
     }
-    Sleep(2000);
-    CheckDosingStatus();
 }
 
 //===========================================================================
-//Empty the syringe at a given rate, pass a double which represents the flow rate, the units are set to the active flow unit
+//Calibrates a given dosing unit
 //===========================================================================
 
-void Nemesys::EmptySyringe(double flo) {
+void Nemesys::CalibrateUnit(unsigned char doseUnit) {
+    NCS_Calib calibUnit = (NCS_Calib)GetProcAddress(hGetProcIDDLL, "NCS_Calibrate");
+
+    if (!calibUnit)
+    {
+        cout << "Failure to load CALIBRATE UNIT function";
+    }
+    long ErrCode = calibUnit(hDev, doseUnit);
+    if (ERR_NOERR != ErrCode)
+    {
+        HandleError(ErrCode);
+        cout << "INSIDE CALIBRATE ERROR: " << ErrCode;
+    }
+}
+//===========================================================================
+//Empty the syringe at a given rate, pass a double which represents the flow rate
+//Units are set to the active flow unit
+//===========================================================================
+
+void Nemesys::EmptySyringe(unsigned char doseUnit, double flo) {
     NCS_Empty empty = (NCS_Empty)GetProcAddress(hGetProcIDDLL, "NCS_EmptySyringe");
-    if (!empty) {
-        cout << "failure";
-
+    if (!empty)
+    {
+        cout << "Failure to load empty function";
     }
-    long ErrCode = empty(hDev, 0, &flo);
+    long ErrCode = empty(hDev, doseUnit, &flo);
     if (ERR_NOERR != ErrCode)
     {
         HandleError(ErrCode);
-        //cout << ErrCode;
-        cout << "inside handle error";
+        cout << "INSIDE EMPTY SYRINGE ERROR: " << ErrCode;
     }
-    Sleep(2000);
-    CheckDosingStatus();
 }
 
 //===========================================================================
-//Refill the syringe at a given rate, pass a double which represents the flow rate, the units are set to the active flow unit
-//Remains to be tested, but should work in principle
+//Refill the syringe at a given rate, pass a double which represents the flow rate
+//Units are set to the active flow unit
 //===========================================================================
-void RefillSyringe(double flo) {
+void Nemesys::RefillSyringe(unsigned char doseUnit, double flo) {
     NCS_Refill refill = (NCS_Refill)GetProcAddress(hGetProcIDDLL, "NCS_RefillSyringe");
-    if (!refill) {
-        cout << "failure";
-
+    if (!refill)
+    {
+        cout << "Failure to load refill function";
     }
-    long ErrCode = refill(hDev, 0, &flo);
+    long ErrCode = refill(hDev, doseUnit, &flo);
     if (ERR_NOERR != ErrCode)
     {
         HandleError(ErrCode);
-        //cout << ErrCode;
-        cout << "inside handle error";
+        cout << "INSIDE REFILL SYRINGE ERROR: " << ErrCode;
     }
-    Sleep(2000);
-    CheckDosingStatus();
-    cout << ErrCode;
 }
 
 //===========================================================================
 //Passes a pointer to a double, changes the value of that pointer to the max flow rate and returns that value
 //===========================================================================
 double getMaxFlow(unsigned char dosUnit, double* MaxFlow) {
-
     NCS_FlowRate flow = (NCS_FlowRate)GetProcAddress(hGetProcIDDLL, "NCS_GetFlowRateMax");
-    if (!flow) {
-        cout << "failure";
-        return -1;
+    if (!flow)
+    {
+        cout << "Failure to load MAXFLOW function";
     }
     long ErrCode = flow(hDev, dosUnit, MaxFlow);
     if (ERR_NOERR != ErrCode)
     {
         HandleError(ErrCode);
-        cout << ErrCode;
-        cout << 4;
+        cout << "INSIDE getMAXFLOW ERROR: " << ErrCode;
     }
-
     return *MaxFlow;
 }
 
@@ -279,16 +312,18 @@ double getMaxFlow(unsigned char dosUnit, double* MaxFlow) {
 //Returns the active FLOW unit Identifier, IDs will be determined shortly
 //===========================================================================
 
-double getActiveFlowUnit() {
+double getActiveFlowUnit(unsigned char doseUnit) {
     NCS_gActiveFlowUnit getflowunit = (NCS_gActiveFlowUnit)GetProcAddress(hGetProcIDDLL, "NCS_GetActiveFlowUnit");
-    if (!getflowunit) {
-        cout << "failure";
+    if (!getflowunit)
+    {
+        cout << "Failure to load GETACTIVEFLOWUNIT function";
         return -1;
     }
-    long ErrCode = getflowunit(hDev, 0);
-    if (ErrCode <0){
-        cout << "error";
-        return -1;
+    long ErrCode = getflowunit(hDev, doseUnit);
+    if (ErrCode <0)
+    {
+        HandleError(ErrCode);
+        cout << "INSIDE GETACTIVEFLOWUNIT ERROR: " << ErrCode;
     }
     return ErrCode;
 }
@@ -296,16 +331,17 @@ double getActiveFlowUnit() {
 //Returns the active VOLUME unit Identifier, IDs will be determined shortly
 //===========================================================================
 
-double getActiveVolumeUnit() {
+double getActiveVolumeUnit(unsigned char doseUnit) {
     NCS_gActiveVolumeUnit getvolumeunit = (NCS_gActiveVolumeUnit)GetProcAddress(hGetProcIDDLL, "NCS_GetActiveVolumeUnit");
-    if (!getvolumeunit) {
-        cout << "failure";
+    if (!getvolumeunit)
+    {
+        cout << "Failure to load GETACTIVEVOLUMEUNIT function";
         return -1;
     }
-    long ErrCode = getvolumeunit(hDev, 0);
+    long ErrCode = getvolumeunit(hDev, doseUnit);
     if (ErrCode <0) {
-        cout << "error";
-        return -1;
+        HandleError(ErrCode);
+        cout << "INSIDE ETACTIVEVOLUMEUNIT ERROR: " << ErrCode;
     }
     return ErrCode;
 }
@@ -315,20 +351,19 @@ double getActiveVolumeUnit() {
 //Once the active FLOW unit is set, it remains active even after you close your connection
 //===========================================================================
 
-void Nemesys::setActiveFlowUnit(unsigned char fUnit) {
-    cout<<"SET ACTIVE FLOW UNIT";
+void Nemesys::setActiveFlowUnit(unsigned char doseUnit, unsigned char fUnit) {
+
     NCS_sActiveFlowUnit setflowunit = (NCS_sActiveFlowUnit)GetProcAddress(hGetProcIDDLL, "NCS_SetActiveFlowUnit");
-    if (!setflowunit) {
-        cout << "failure";
+    if (!setflowunit)
+    {
+        cout << "Failure to load SETACTIVEFLOWUNIT function";
     }
-    long ErrCode = setflowunit(hDev, 0, fUnit);
+    long ErrCode = setflowunit(hDev, doseUnit, fUnit);
     if (ERR_NOERR != ErrCode)
     {
         HandleError(ErrCode);
-        //cout << ErrCode;
-        cout << "inside handle error";
+        cout << "INSIDE SETACTIVEFLOWUNIT ERROR: " << ErrCode;
     }
-    cout << "if no handle error, success!";
 }
 
 //===========================================================================
@@ -336,135 +371,116 @@ void Nemesys::setActiveFlowUnit(unsigned char fUnit) {
 //Once the active VOLUME unit is set, it remains active even after you close your connection
 //===========================================================================
 
-void Nemesys::setActiveVolumeUnit(unsigned char vUnit) {
-    cout<<"SET ACTIVE VOLUME UNIT"<<vUnit;
+void Nemesys::setActiveVolumeUnit(unsigned char doseUnit, unsigned char vUnit) {
+
     NCS_sActiveVolumeUnit setvolumeunit = (NCS_sActiveVolumeUnit)GetProcAddress(hGetProcIDDLL, "NCS_SetActiveVolumeUnit");
     if (!setvolumeunit) {
-        cout << "failure";
+        cout << "Failure to load SETACTIVEVOLUMEUNIT function";
     }
-    long ErrCode = setvolumeunit(hDev, 0, vUnit);
+    long ErrCode = setvolumeunit(hDev, doseUnit, vUnit);
     if (ERR_NOERR != ErrCode)
     {
         HandleError(ErrCode);
-        //cout << ErrCode;
-        cout << "inside handle error";
+        cout << "INSIDE SETACTIVEVOLUMEUNIT ERROR: " << ErrCode;
     }
-    cout << "if no handle error, success!";
+  }
+//===========================================================================
+//Stops a dosing unit from dosing
+//Can be executed during dosing or calibration(avoid calibration if possible)
+//===========================================================================
+void Nemesys::StopUnit(unsigned char doseUnit){
+    NCS_stopUnit stopunit = (NCS_stopUnit)GetProcAddress(hGetProcIDDLL, "NCS_Stop");
+    if (!stopunit) {
+        cout << "Failure to load StopUnit function";
+    }
+    long ErrCode = stopunit(hDev, doseUnit);
+    if (ERR_NOERR != ErrCode)
+    {
+        HandleError(ErrCode);
+        cout << "INSIDE StopUnit ERROR: " << ErrCode;
+    }
+}
+//===========================================================================
+//Stops ALL dosing units from dosing
+//Can be executed during dosing or calibration(avoid calibration if possible)
+//===========================================================================
+void StopAllUnits(){
+    NCS_stopAllUnits stopallunits = (NCS_stopAllUnits)GetProcAddress(hGetProcIDDLL, "NCS_StopAllUnits");
+    if (!stopallunits) {
+        cout << "Failure to load StopALLUnits function";
+    }
+    long ErrCode = stopallunits(hDev);
+    if (ERR_NOERR != ErrCode)
+    {
+        HandleError(ErrCode);
+        cout << "INSIDE StopALLUnits ERROR: " << ErrCode;
+    }
 }
 
+//===========================================================================
+//Stops ALL dosing units from dosing
+//Can be executed during dosing or calibration(avoid calibration if possible)
+//NEEDS WORK ON; Not producing the correct units yet.
+//===========================================================================
+void Nemesys::getSyringeLevels(unsigned char doseUnit, double minSL, double maxSL){
+    NCS_gSyringeLevels getsyringelevels = (NCS_gSyringeLevels)GetProcAddress(hGetProcIDDLL, "NCS_GetSyringeLimits");
+    if (!getsyringelevels) {
+        cout << "Failure to load getSyringeLevels function";
+    }
+    long ErrCode = getsyringelevels(hDev, doseUnit, &minSL, &maxSL);
+    if (ERR_NOERR != ErrCode)
+    {
+        HandleError(ErrCode);
+        cout << "INSIDE getSyringeLevels ERROR: " << ErrCode;
+    }
+}
 
+//===========================================================================
+//Stops ALL dosing units from dosing
+//Can be executed during dosing or calibration(avoid calibration if possible)
+//NEEDS WORK ON; Not producing the correct units yet.
+//===========================================================================
+/*void Nemesys::getSyringeLevels(unsigned char doseUnit, double minSL, double maxSL){
+    NCS_gSyringeLevels getsyringelevels = (NCS_gSyringeLevels)GetProcAddress(hGetProcIDDLL, "NCS_GetSyringeLimits");
+    if (!getsyringelevels) {
+        cout << "Failure to load getSyringeLevels function";
+    }
+    long ErrCode = getsyringelevels(hDev, doseUnit, &minSL, &maxSL);
+    if (ERR_NOERR != ErrCode)
+    {
+        HandleError(ErrCode);
+        cout << "INSIDE getSyringeLevels ERROR: " << ErrCode;
+    }
+    double Slevels [2] = {minSL, maxSL};
+    return Slevels;
+}*/
+//===========================================================================
+//Opens the connection with the NemeSYS System
+//Before doing so, the DLL must be loaded
+//===========================================================================
 void Nemesys::openConnection()
 {
-    //C:\Users\umroot\Desktop\build-dmf32-Desktop_Qt_5_7_0_MSVC2015_32bit-Debug\debug
-
     hGetProcIDDLL = LoadLibraryA(("nemesys_dll"));
 
     if (hGetProcIDDLL == NULL) {
         cout << "cannot locate the .dll file";
     }
     else {
-        cout << "it has been called";
-        //return -1;
+        cout << "DLL has successfully been loaded";
     }
-
-    cout << "\n Opening connection in 2 seconds";
-    Sleep(2000);
+    Sleep(NemeSYSdelay);
     InitNemesysDev();
 
 }
-
+//===========================================================================
+//Closes the connection with the NemeSYS System
+//===========================================================================
 void Nemesys::closeConnection()
 {
-    Sleep(2000);
-
+    Sleep(NemeSYSdelay);
     CloseNemesysDev();
 }
 
-/*int main(int argc, char *argv[])
-{
-/*
-    QLibrary myLib ("C:/Users/umroot/Documents/SyringePumps_1/nemesys_dll.dll");
-
-    if(!myLib.load()){
-        cout << "failure";
-    };
-
-    bool okLoad = myLib.load(); // check load DLL file successful or not
-    bool ok = myLib.isLoaded();
-    cout << okLoad;
-    cout << ok;
-    typedef int(__stdcall *NCS_Open)(unsigned char, ncs_hdl*);
-    NCS_Open myFunction = (NCS_Open) myLib.resolve("NCS_OpenDevice");
-    if (myFunction)
-        cout <<"hello";
-    long ErrCode = myFunction(true, &hDev);
-    cout << ErrCode;
-
-
-    typedef int(__stdcall *NCS_Open)(unsigned char, ncs_hdl*);
-    NCS_Open myFunction = (NCS_Open) myLib.resolve("NCS_SetActiveVolumeUnit");
-    if (myFunction)
-        cout <<"hello";
-
-
-    hGetProcIDDLL = LoadLibraryA(("C:/Users/umroot/Documents/SyringePumps_1/nemesys_dll.dll"));
-
-    if (hGetProcIDDLL == NULL) {
-        cout << "cannot locate the .dll file";
-    }
-    else {
-        cout << "it has been called";
-        //return -1;
-    }
-
-    cout << "\n Opening connection in 2 seconds";
-    Sleep(2000);
-    InitNemesysDev();
-
-    Sleep(2000);
-
-    //unsigned char dUnit = 0; //dosing unit
-    //double MaxFlo;
-    //getMaxFlow(dUnit, &MaxFlo);
-    //cout << MaxFlo;
-
-
-    //quickly outputs the active volume unit, then sets it and then displays new volume unit
-    double unit;
-    unit = getActiveVolumeUnit();
-    cout << "\n";
-    cout << unit;
-    cout << "\n";
-    unsigned char fUnit1 = 1;
-    setActiveVolumeUnit(fUnit1);
-    Sleep(3000);
-    unit = getActiveVolumeUnit();
-    cout << unit;
-
-    double vol1 = 2000;
-    double flo1 = -100;
-    DoseVolume(vol1, flo1);
-    Sleep(4000);
-    CheckDosingStatus();
-
-    double e = 100; // empty rate
-
-    Sleep(4000);
-    EmptySyringe(e);
-
-    Sleep(2000);
-    CheckDosingStatus();
-
-
-    cout << "\n Closing connection in 2 seconds";
-    Sleep(2000);
-
-    CloseNemesysDev();
-
-
-    return 0;
-}
-*/
 
 //---------------------------------------------------------------------------
 // EOF
