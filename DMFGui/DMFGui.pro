@@ -17,12 +17,14 @@ SOURCES += main.cpp\
         dmfgui.cpp \
     dialog.cpp \
     testing.cpp \
-    nemesys.cpp
+    nemesys.cpp \
+    node.cpp
 
 HEADERS  += dmfgui.h \
     dialog.h \
     testing.h \
-    nemesys.h
+    nemesys.h \
+    node.h
 
 FORMS    += dmfgui.ui \
     dialog.ui

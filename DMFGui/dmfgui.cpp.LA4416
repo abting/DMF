@@ -14,8 +14,8 @@
 #include <cstdlib>
 #include <climits>
 #include <QCloseEvent>
-#include <QStack>
-#include <node.h>
+#include <queue>
+#include "node.h"
 
 QPushButton **dmf_array;
 QGridLayout *gridLayout;
@@ -597,11 +597,7 @@ QString DMFgui::autoGeneratePath(const int & xStart,const int & yStart,const int
 //    std::priority_queue<node> pq[2];                             //defining 2 priority lists
 //    std::priority_queue<node, std::vector<node>, std::function<bool(node, node)>> pq(Compare);
 //    std::priority_queue<node,std::vector<node>,Compare> pq[2];
-
-//    node min = *std::min_element(stack[index].begin(),stack[index].end());                  //lowest value = highest priority
-
     static int index;      //initialized to 0?                                       //static and global variables are initialized to 0
-    QStack<node> stack[2];
     static node *currentNode;
     static node *neighborNode;
 
@@ -621,97 +617,72 @@ QString DMFgui::autoGeneratePath(const int & xStart,const int & yStart,const int
                          0,
                          0);
     startNode->updatePriority(xFinish,yFinish);
-    activate(startNode->getyPos(),startNode->getxPos(),0);                                       //sets the start node as blue
+    activate(startNode,0);                                       //sets the start node as blue
 
     //push the start node to the priority queue
-    stack[index].push(*startNode);
+    pq[index].push(*startNode);
 
     //add to the list of open nodes in order to evaluate the start node
-    openNodes[startNode->getxPos()][startNode->getyPos()] = startNode->getPriority();
+    openNodes[0][0] = startNode->getPriority();
 
-    ui->textEdit->insertPlainText("\n before loop\n");
-
-//    //while priority queue is not empty, continue
-    while(!stack[index].empty()){
-//    for (int j=0;j<4;j++){
-        ui->textEdit->insertPlainText("\n start of loop\n");
-        auto min = std::min_element( stack[index].begin(), stack[index].end(),
-                                     []( const node &a, const node &b )
-                                     {
-                                         return a.getPriority() < b.getPriority();
-                                     } );
-
+    //while priority queue is not empty, continue
+    while(!pq[index].empty()){
         //get the current node with the highest priority in the priority list (this will be the smallest value, according to the way we set this up)
-        currentNode = new node(min->getxPos(),
-                               min->getyPos(),
-                               min->getDistance(),
-                               min->getPriority());
+        currentNode = new node(pq[index].top().getxPos(),
+                               pq[index].top().getyPos(),
+                               pq[index].top().getDistance(),
+                               pq[index].top().getPriority());
         //remove the current node from the priority queue
-        stack[index].erase(min);
+        pq[index].pop();
+        pq[index].push(*currentNode);
         //add the currentNode into the openNodes (this is actually building a parallel map that stores what to evaluate)
         openNodes[currentNode->getxPos()][currentNode->getyPos()]=0;
         //add the currentNode into the closedNodes
         closedNodes[currentNode->getxPos()][currentNode->getyPos()]=1;
 
-        ui->textEdit->insertPlainText("\n\n XPos:"+ QString::number(currentNode->getxPos()));
-        ui->textEdit->insertPlainText("YPos:"+ QString::number(currentNode->getyPos()) + "\n");
-
         //check if target has been reached
         if (currentNode->getxPos()==xFinish && currentNode->getyPos()==yFinish){
             ui->textEdit->insertPlainText("target has been reached");
-            activate(currentNode->getyPos(),currentNode->getxPos(),2);                             //activates the destination node
+            activate(currentNode,2);
             //return the generated path in a QString
             QString path = "";
             int x = currentNode->getxPos();
             int y = currentNode->getyPos();
+            int direction;
             //back track the whole procress to build a QString
             while (!(x==xStart && y ==yStart))
             {
-            ui->textEdit->insertPlainText("\nxStart: "+ QString::number(xStart));
-            ui->textEdit->insertPlainText("\nyStart: "+ QString::number(yStart));
-            ui->textEdit->insertPlainText("\nxBefore: "+ QString::number(x));
-            ui->textEdit->insertPlainText("\nyBefore: "+ QString::number(y));
                 int direction = dir_map[x][y];
                 path = (direction + dir/2)%dir + path; //CHECK THIS OUT
-                ui->textEdit->insertPlainText("\ndirection: " + QString::number(direction));
                 x += dirX[direction]; //direction is pointing towards the previous node
                 y += dirY[direction];
-                ui->textEdit->insertPlainText("\n\nxAfter: "+ QString::number(x));
-                ui->textEdit->insertPlainText("\nyAfter: "+ QString::number(y));
-                activate(y,x,1);
             }
-//            //delete the node
-//            delete currentNode;
-//            //emptying the 'new' node
-//            while (!stack[index].empty()){
-//                stack[index].pop();
-//            }
-//            return path;
-        break;
+            //delete the node
+            delete currentNode;
+            //emptying the 'new' node
+            while (!pq[index].empty()){
+                pq[index].pop();
+            }
+            return path;
         }
         //if target hasn't been reached, add all the neighboring nodes to the OpenList + define parents for later tracing
         else{
-            for (int i=0;i<dir;i++){
+            //for (int i=0;i<dir;i++){ UNCOMMENT EVENTUALLY
                 /** coordinates are correct **/
-                int neighborX = currentNode->getxPos()+dirX[i];
-                int neighborY = currentNode->getyPos()+dirY[i];
-
+                int neighborX = currentNode->getxPos()+dirX[0];                                         //i
+                int neighborY = currentNode->getyPos()+dirY[0];                                         //i
                 ui->textEdit->insertPlainText("\n neighborX:"+ QString::number(neighborX));
                 ui->textEdit->insertPlainText("\n neighborY:"+ QString::number(neighborY));
-                //means that it's unavailable
-            if (dmf_array[neighborY][neighborX].text()==""){
-                closedNodes[neighborX][neighborY]==1;
-                ui->textEdit->insertPlainText("in closedNodes");
-            }
             //TODO: use the code writen for check if avaiable or something
             //ignore if it's on the closed list or if it has been marked as unavailable
-            else if (!(neighborX<0||neighborY<0||neighborX>horizontalSize||neighborY>verticalSize||closedNodes[neighborX][neighborY]==1)){
+            if (!(neighborX<0||neighborY<0||neighborX>horizontalSize||neighborY>verticalSize||closedNodes[neighborX][neighborY]==1)){
                 //if it gets here, then generate a neighbor Node
                 neighborNode = new node(neighborX,
                                         neighborY,
                                         currentNode->getDistance(),
                                         currentNode->getPriority());
                 /** coordinates are ok, this works fine **/
+                dmf_array[neighborY][neighborX].setStyleSheet("background-color:green; border-style: outset ;border-width: 2px; border-color: grey");
                 ui->textEdit->insertPlainText("\n old priority:"+ QString::number(neighborNode->getPriority()));
                 ui->textEdit->insertPlainText("\n old distance:"+ QString::number(neighborNode->getDistance()));
                 /** this seems to be ok **/
@@ -726,47 +697,40 @@ QString DMFgui::autoGeneratePath(const int & xStart,const int & yStart,const int
                     //add it
                     openNodes[neighborX][neighborY] =neighborNode->getPriority();
                     //add it to the priority cue
-                    stack[index].push(*neighborNode);
+//                    pq[index].push(*neighborNode);
+                    ui->textEdit->insertPlainText("\n index value:" + QString::number(index));
                     //set the parent
-                    dir_map[neighborX][neighborY]=(i+dir/2)%dir; //look at notebook for references
-                    ui->textEdit->insertPlainText("\n added to openNodes");
+//                    dir_map[neighborX][neighborY]=(0+dir/2)%dir; //look at notebook for references      //i
                 }
                 //if neighborNode is already on the openNodes, check if the path to that one is better
                 else if (openNodes[neighborX][neighborY]>neighborNode->getPriority()){
-                    ui->textEdit->insertPlainText("\n already on openNodes");
                     //updating fscore inside openNodes
                     openNodes[neighborX][neighborY] = neighborNode->getPriority();
                     //update the parent node
-                    dir_map[neighborX][neighborY]=(0+dir/2)%dir;
-                    while (!(min->getxPos()==neighborX && min->getyPos()==neighborY)){
-                        stack[1-index].push(*min);
-                        stack[index].erase(min);
+                    dir_map[neighborX][neighborY]=(0+dir/2)%dir;                                        //i
+                    while (!((pq[index].top().getxPos()==neighborX) && (pq[index].top().getyPos()==neighborY))){
+                        pq[1-index].push(pq[index].top());
+                        pq[index].pop();
                     }
-                    stack[index].erase(min); //remove the -old-current node
-
-                    ui->textEdit->insertPlainText("\n stage 1");
+                    pq[index].pop(); //remove the -old-current node
 
                     /** ?? **/
-                    if(stack[index].size()>stack[1-index].size()){ //??? is this extra check necessary?
+                    if(pq[index].size()>pq[1-index].size()){ //??? is this extra check necessary?
                         index=1-index; //index switch 1->0 or 0->1
-                        ui->textEdit->insertPlainText("\n switching index");
                     }
 
-                    //while(!stack[index].empty()){
-                        stack[1-index].push(*min);
-                        ui->textEdit->insertPlainText("\n stack[1-index].push(*min);");
-                        stack[index].erase(min); // fix this??
-                        ui->textEdit->insertPlainText("\n transfering finished");
-                    //}
+                    while(!pq[index].empty()){
+                        pq[1-index].push(pq[index].top());
+                        pq[index].pop();
+                    }
                     /** ?? **/
                     index=1-index; //index switch 1->0 or 0->1
-                    stack[index].push(*neighborNode); //and the -new-current node will be pushed in instead
-                    ui->textEdit->insertPlainText("\n finished already on openNodes");
+                    pq[index].push(*neighborNode); //and the -new-current node will be pushed in instead
                 } else delete neighborNode;
             }
-        }
+        //}
             delete currentNode;
-    } ui->textEdit->insertPlainText("\n end of loop\n");
+    }
 }return ""; //no path found
 }
 /*
@@ -833,15 +797,15 @@ QString DMFgui::findEmptySpace(int x, int y){
  * sets the electrode green
  * int position: 0=start;1=path;2=end
  */
-void DMFgui::activate(int y, int x,int position){
+void DMFgui::activate(node *target,int position){
     if (position == 0){                                          //start
-        dmf_array[y][x].setStyleSheet("background-color:blue; border-style: outset ;border-width: 2px; border-color: grey");
+        dmf_array[target->getyPos()][target->getxPos()].setStyleSheet("background-color:blue; border-style: outset ;border-width: 2px; border-color: grey");
     }
     if(position==1){
-        dmf_array[y][x].setStyleSheet("background-color:green; border-style: outset ;border-width: 2px; border-color: grey");
+        dmf_array[target->getyPos()][target->getxPos()].setStyleSheet("background-color:green; border-style: outset ;border-width: 2px; border-color: grey");
     }
     if(position==2){
-        dmf_array[y][x].setStyleSheet("background-color:red; border-style: outset ;border-width: 2px; border-color: grey");
+        dmf_array[target->getyPos()][target->getxPos()].setStyleSheet("background-color:red; border-style: outset ;border-width: 2px; border-color: grey");
     }
 //    save_to_String(dmf_array[y][x].text());
 //    dmf_array[y][x].setStyleSheet("background-color:green; border-style: outset ;border-width: 2px; border-color: grey");

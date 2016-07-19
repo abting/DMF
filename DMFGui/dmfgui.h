@@ -9,6 +9,7 @@
 #include "dialog.h"
 #include "testing.h"
 #include "nemesys.h"
+#include "node.h"
 
 namespace Ui {
 class DMFgui;
@@ -39,10 +40,11 @@ private slots:
     void on_enterButton_clicked();
     bool add_reservoir();
     void buttonClicked(QString);
-    void autoGeneratePath(int,int,int, int, int);
+    QString autoGeneratePath(const int &,const int &,const int &,const int &);
+    void resetMaps();
     QString findAvailableSpace(int, int);
     QString findEmptySpace(int, int);
-    void activate(int,int);
+    void activate(int,int,int);
     void ClearColor();
     int get_Fvalue(int,int,int,int,int,int);
 
@@ -71,7 +73,6 @@ private slots:
     void on_enterButton_2_clicked();
 
     void map_reservoir(int,int);
-
 private:
     Ui::DMFgui *ui;
     Dialog *dialog;
