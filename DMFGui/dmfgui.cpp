@@ -15,7 +15,8 @@
 #include <climits>
 #include <QCloseEvent>
 #include <QStack>
-#include <node.h>
+#include "node.h"
+
 
 QPushButton **dmf_array;
 QGridLayout *gridLayout;
@@ -39,6 +40,14 @@ bool dosing = false;
 
 bool addRes = false;                                             //true if need to keep adding reservoirs.
                                                                  //false if all reservoirs were added
+
+bool mapCreated = false;                                        //True if the map (Grid) has been created
+
+bool realTime = false;                                          //If true, turn on electrodes one at a time in real-time
+
+QStringList ordCP;                                              //This contains the Contact PAD Information from DIPTRACE
+
+
 //Used for Autogen path, color assignments
 int* rcoord;
 int* ccoord;
@@ -85,20 +94,21 @@ DMFgui::DMFgui(QWidget *parent) :
     ui->unitsComboBox->addItem("mL");
     ui->unitsComboBox->addItem("L");
     ui->unitsComboBox->addItem("mm");
+    ui->unitsComboBox->setCurrentIndex(1);
 
-//      COMMENTED OUT FOR AUTOGEN
-//    ui->funitscomboBox->addItem("nL/s");
-//    ui->funitscomboBox->addItem("nL/min");
-//    ui->funitscomboBox->addItem("μL/s");
-//    ui->funitscomboBox->addItem("μL/min");
-//    ui->funitscomboBox->addItem("μL/h");
-//    ui->funitscomboBox->addItem("mL/min");
-//    ui->funitscomboBox->addItem("mL/h");
-//    ui->funitscomboBox->addItem("mm/s");
+    ui->funitscomboBox->addItem("nL/s");
+    ui->funitscomboBox->addItem("nL/min");
+    ui->funitscomboBox->addItem("μL/s");
+    ui->funitscomboBox->addItem("μL/min");
+    ui->funitscomboBox->addItem("μL/h");
+    ui->funitscomboBox->addItem("mL/min");
+    ui->funitscomboBox->addItem("mL/h");
+    ui->funitscomboBox->addItem("mm/s");
+    ui->funitscomboBox->setCurrentIndex(2);
 
-//    ui->dosingUnitscomboBox->addItem("1");
-//    ui->dosingUnitscomboBox->addItem("2");
-//    ui->dosingUnitscomboBox->addItem("3");
+    ui->dosingUnitscomboBox->addItem("1");
+    ui->dosingUnitscomboBox->addItem("2");
+    ui->dosingUnitscomboBox->addItem("3");
 
     //defining arduino
     arduino=new QSerialPort;
@@ -140,23 +150,22 @@ DMFgui::~DMFgui(){
 /*
  * "x" button on the main window
  */
-// COMMENTED OUT FOR AUTOGEN
-//void DMFgui::closeEvent(QCloseEvent *event){
-//    if (opened){                                                 //close nemesys if it was opened
-//        nemesys->closeConnection();
-//    }
-//    event -> accept();                                           //allows the main window to close
-//}
+void DMFgui::closeEvent(QCloseEvent *event){
+    if (opened){                                                 //close nemesys if it was opened
+        nemesys->closeConnection();
+    }
+    event -> accept();                                           //allows the main window to close
+}
 /*
  * Information that gets sent to Arduino
  */
 void DMFgui::save_to_String(QString electrode_num){              //#LOOK INTO STRINGSTREAM
     to_Send += electrode_num + ",";
     if (electrode_num=="1000" || electrode_num=="1001"|| electrode_num=="1003"){
-        ui->textEdit->insertPlainText("\nsaved to string command: "+electrode_num + ","); //special commands.
+        ui->textEdit->insertPlainText("\n"+electrode_num + ","); //special commands.
     }
     else{                                                        //normal commands
-        ui->textEdit->insertPlainText("\nsaved to string electrode number:"+electrode_num + ",");
+        ui->textEdit->insertPlainText(""+electrode_num + ",");
     }
 }
 /*
@@ -213,7 +222,6 @@ void DMFgui::on_sendButton_clicked(){
         ui->textEdit->insertPlainText(to_Send);
     }                                                            //automatically go back if user is not sure
 }
-
 /*
  * Communicating information to Arduino
  */
@@ -225,7 +233,6 @@ void DMFgui::updateDMF(QString to_Send){
         qDebug() << "Couldn't write to serial";
     }
 }
-
 /*--------------------------------------------------------------------------------------------------------
  *
  * Setting up configuration of DMF device
@@ -267,7 +274,6 @@ void DMFgui::on_enterButton_clicked(){
                 for (int j=0;j<newcolumn;j++){
                     if (i==0||i==1||j==0||j==1||i==drow+3||i==drow+2||j==dcolumn+3||j==dcolumn+2){
                         dmf_array[i][j].setText("");
-                        //dmf_array[i][j].setEnabled(false);
                         dmf_array[i][j].setStyleSheet("background-color:white;border:none");
                         gridLayout->addWidget(&dmf_array[i][j],i,j);
                     }
@@ -279,9 +285,9 @@ void DMFgui::on_enterButton_clicked(){
 
                         mapper->connect(&dmf_array[i][j],SIGNAL(clicked()),mapper,SLOT(map()));
                         mapper->setMapping(&dmf_array[i][j],QString::number(i)+","+QString::number(j)+","+QString::number(numberingcount));
+                     }
                     }
                 }
-            }
                                                                  //connecting buttons to signal mapping
             connect(mapper,SIGNAL(mapped(QString)),this,SLOT(buttonClicked(QString)));
             gridLayout->addWidget(&display,newrow,0,1,newcolumn);
@@ -311,6 +317,7 @@ void DMFgui::on_enterButton_clicked(){
                 addRes = true;                                   //need to add the reservoirs
             }
             enter_Button_Clicked = true;                         //prevents user from clicking enter twice
+            mapCreated = true;                                  //Map has been created, may be unnecessary (same function as enter_button_clicked)
         }
     }
     else{
@@ -330,24 +337,16 @@ void DMFgui::buttonClicked(QString text){
     if (elec ==1){                                               //saving values into the first electrode (struct)
         electrode_1.x = electrodeList.value(1).toInt();
         electrode_1.y = electrodeList.value(0).toInt();
-//        ui->textEdit->insertPlainText("\n electrode_1");
-//        ui->textEdit->insertPlainText("\n electrode: " +electrodeList.value(2));
-//        ui->textEdit->insertPlainText("\n x coordinate: " +QString::number(electrode_1.x));
-//        ui->textEdit->insertPlainText("\n y coordinate: " +QString::number(electrode_1.y));
         elec ++;                                                 //go to electrode_2 next time a button is pressed
     }
     else if(elec==2){
         electrode_2.x = electrodeList.value(1).toInt();
         electrode_2.y = electrodeList.value(0).toInt();
-//        ui->textEdit->insertPlainText("\n electrode_2");
-//        ui->textEdit->insertPlainText("\n electrode: " + electrodeList.value(2));
-//        ui->textEdit->insertPlainText("\n x coordinate: " +QString::number(electrode_2.x));
-//        ui->textEdit->insertPlainText("\n y coordinate: " +QString::number(electrode_2.y));
         elec --;                                                 //go to electrode_1 next time a button is pressed
     }
     if (addRes){                                                 //if the signal for adding a reservoir was called, add a reservoir
         if (added<resnum){
-           if (add_reservoir()){
+           if (add_reservoir(newcolumn,newrow,resnum)){
                added++;
            }
         }
@@ -357,13 +356,26 @@ void DMFgui::buttonClicked(QString text){
         }
     }
     else{                                                        //if not adding a reservoir, save to string to send to Arduino
+
+        if(realTime){
+            if (arduino->isWritable()){
+                QString a = "1000," + electrodeList.value(2);
+                const char * dat = a.toStdString().c_str(); //= ("1000," + electrodeList.value(2)).toStdString().c_str();
+
+                arduino->write(dat);
+
+            }
+        }
+        else{
+        //ui->textEdit->insertPlainText("\n called");
             save_to_String(electrodeList.value(2));
+        }
     }
 }
 /*
  * Function for adding a reservoir
  */
-bool DMFgui::add_reservoir()
+bool DMFgui::add_reservoir(int column, int row, int resnum)
 {
     int * coords = getRecent_Coordinates();                      //getting most recent coordinates and saving them in a new array
     int x_coord = coords[2];
@@ -396,31 +408,26 @@ bool DMFgui::add_reservoir()
             dialog->choice(emptySpaceList);
             dialog->exec();
             location = dialog->saved;
-            //location = openNewWindow(emptySpaceList);
 
             if (location=="top"){
-                //gridLayout->addWidget(reservoir,x_coord-2,y_coord);
                 setMapping(y_coord,x_coord-1);
                 map_reservoir(y_coord,x_coord-2);
                 return true;
                 break;
             }
             if (location=="left"){
-                //gridLayout->addWidget(reservoir,x_coord,y_coord-2);
                 setMapping(y_coord-1,x_coord);
                 map_reservoir(y_coord-2,x_coord);
                 return true;
                 break;
             }
             if (location=="right"){
-                //gridLayout->addWidget(reservoir,x_coord,y_coord+2);
                 setMapping(y_coord+1,x_coord);
                 map_reservoir(y_coord+2,x_coord);
                 return true;
                 break;
             }
             if (location=="bottom"){
-                //gridLayout->addWidget(reservoir,x_coord+2,y_coord);
                 setMapping(y_coord,x_coord+1);
                 map_reservoir(y_coord,x_coord+2);
                 return true;
@@ -435,7 +442,6 @@ bool DMFgui::add_reservoir()
                 //set booleans so that you don't get to click to same place twice
                 if (emptySpaceList.contains("left",Qt::CaseSensitive))//left column
                 {
-                    //gridLayout->addWidget(reservoir,x_coord,y_coord-2);
                     setMapping(y_coord-1,x_coord);
                     map_reservoir(y_coord-2,x_coord);
                     return true;
@@ -443,7 +449,6 @@ bool DMFgui::add_reservoir()
                 }
                 else if (emptySpaceList.contains("right",Qt::CaseSensitive)) //right column
                 {
-                    //gridLayout->addWidget(reservoir,x_coord,y_coord+2);
                     setMapping(y_coord+1,x_coord);
                     map_reservoir(y_coord+2,x_coord);
                     return true;
@@ -451,7 +456,6 @@ bool DMFgui::add_reservoir()
                 }
                 else if (emptySpaceList.contains("top",Qt::CaseSensitive))
                 {
-                    //gridLayout->addWidget(reservoir,x_coord-2,y_coord);
                     setMapping(y_coord,x_coord-1);
                     map_reservoir(y_coord,x_coord-2);
                     return true;
@@ -459,7 +463,6 @@ bool DMFgui::add_reservoir()
                 }
                 else if(emptySpaceList.contains("bottom",Qt::CaseSensitive))
                 {
-                    //gridLayout->addWidget(reservoir,x_coord+2,y_coord);
                     setMapping(y_coord,x_coord+1);
                     map_reservoir(y_coord,x_coord+2);
                     return true;
@@ -470,34 +473,6 @@ bool DMFgui::add_reservoir()
             return false;
             break;
     }
-}
-/*
- * CLASS CALL: Dialog()
- * for choosing where the reservoir is going to be in case 2 of adding reservoirs (corner)
- */
-QString DMFgui::openNewWindow(int corner)
-{
-//    dialog = new Dialog();
-//    if (corner == 1){                                            //"top-left"
-//        dialog->choice("topLeft");
-//        dialog->exec();
-//        return dialog->saved;
-//    }
-//    else if (corner == 2){                                       //"top-right"
-//        dialog->choice("topRight");
-//        dialog->exec();
-//        return dialog->saved;
-//    }
-//    else if (corner == 3){                                       //"bottom-right"
-//        dialog->choice("bottomRight");
-//        dialog->exec();
-//        return dialog->saved;
-//    }
-//    else if(corner == 4){                                        //"bottom-left"
-//        dialog->choice("bottomLeft");
-//        dialog->exec();
-//        return dialog->saved;
-//    }
 }
 /*
  * Getting most recent coordinate (either electrode_1 or electrode_2)
@@ -522,13 +497,13 @@ int * DMFgui::getRecent_Coordinates(){
  * Setting mapping for all the buttons created
  */
 void DMFgui::setMapping(int x, int y){
-    ui->textEdit->insertPlainText("\nelectrode number:" + QString::number(numberingcount));
     dmf_array[y][x].setText(QString::number(numberingcount));
     dmf_array[y][x].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
     gridLayout->addWidget(&dmf_array[y][x],y,x);
     mapper->connect(&dmf_array[y][x],SIGNAL(clicked()),mapper,SLOT(map()));
     mapper->setMapping(&dmf_array[y][x],QString::number(y)+","+QString::number(x)+","+QString::number(numberingcount));
 }
+
 /*
  * Adding a reservoir and setting it on the map
  * So that it becomes clickable
@@ -562,51 +537,32 @@ void DMFgui::on_autogen_Button_clicked(){
     int a3 = z[2];                                               //Final row
     int a4 = z[3];                                               //Final column
 
-    QString route = autoGeneratePath(a2,a1,a4,a3);
+    autoGeneratePath(a1,a2,a3,a4);                             //path 1 set as default
 }
 /*
  * saves most recent coordinates to the autogen path (saves beginning and end)
  */
 QString DMFgui::autoGeneratePath(const int & xStart,const int & yStart,const int & xFinish,const int & yFinish){
     //node sets
-    int closedNodes[horizontalSize][verticalSize];        //set of nodes that are already evaluated and marked off
-    int openNodes[horizontalSize][verticalSize];          //set of nodes to be evaluated
-    int dir_map[horizontalSize][verticalSize];            //map of directions(parent-child connection) keeps track of the different paths
-
+    int **closedNodes = new int*[horizontalSize];
+    int **openNodes = new int*[horizontalSize];
+    int **dir_map = new int*[horizontalSize];
+    for (int i=0;i<verticalSize;i++){
+        closedNodes[i] = new int[verticalSize];                 //set of nodes that are already evaluated and marked off
+        openNodes[i] = new int[verticalSize];                   //set of nodes to be evaluated
+        dir_map[i] = new int[verticalSize];                     //map of directions(parent-child connection) keeps track of the different paths
+    }
     //directions
     const int dir = 4;
     static int dirX[dir]={1,0,-1,0}; //x direction
     static int dirY[dir]={0,1,0,-1}; //y direction
-
-//    int currentrow = rowI;//y variable, getting called first
-//    int currentcol = colI;//x variable
-
-//    QStringList elecToCheck;
-
-//    //for clearing purposes
-//    firstR = rowI;
-//    firstC = colI;
-
-    /*
-     *priority_queue: container adaptors where the first element is always the greatest of the elements
-     * it contains. elements are popped from the back of the container which is known as the top of the
-     * priority queue.
-     *
-     * this is used to get the lowest fscore
-     */
-//    std::priority_queue<node> pq[2];                             //defining 2 priority lists
-//    std::priority_queue<node, std::vector<node>, std::function<bool(node, node)>> pq(Compare);
-//    std::priority_queue<node,std::vector<node>,Compare> pq[2];
-
-//    node min = *std::min_element(stack[index].begin(),stack[index].end());                  //lowest value = highest priority
 
     static int index;      //initialized to 0?                                       //static and global variables are initialized to 0
     QStack<node> stack[2];
     static node *currentNode;
     static node *neighborNode;
 
-    //reset map
-    resetMaps();
+//reset map
     for (int y=0;y<horizontalSize;y++){
         for (int x=0;x<verticalSize;x++){
             closedNodes[x][y]=0;
@@ -776,20 +732,10 @@ QString DMFgui::autoGeneratePath(const int & xStart,const int & yStart,const int
 }return ""; //no path found
 }
 /*
- * Resetting maps
- */
-void DMFgui::resetMaps(){
-//    for (int y=0;y<horizontalSize;y++){
-//        for (int x=0;x<verticalSize;x++){
-//            closedNodes[x][y]=0;
-//            openNodes[x][y]=0;
-//        }
-//    }
-}
-/*
  * Analyzing top, bottom, left and right to the target electrode
  * returns which electrodes are available by determining if they have something
  * written on them or not
+ * PROBABLY WON'T NEED IT
  */
 QString DMFgui::findAvailableSpace(int y, int x){
     QString availElec = "";
@@ -807,6 +753,7 @@ QString DMFgui::findAvailableSpace(int y, int x){
     }
     return availElec;
 }
+
 /*
  * Does the opposite of findAvailableSpace
  */
@@ -834,10 +781,11 @@ QString DMFgui::findEmptySpace(int x, int y){
     ui->textEdit->insertPlainText("\nnumber of empty spaces: " + QString::number(emptySpaces));
     return emptyElec;
 }
+
+
 /*
  * save_to_String whichever electrode was selected for the autogenerated path
  * sets the electrode green
- * int position: 0=start;1=path;2=end
  */
 void DMFgui::activate(int y, int x,int position){
     if (position == 0){                                          //start
@@ -868,26 +816,6 @@ void DMFgui::ClearColor(){
     }
     autoGen = false;
 }
-/*
- *Gets the F value of the A* algorithm
- */
-int DMFgui::get_Fvalue(int y, int x,int rowI,int colI,int rowF, int colF){
-    int f,g,h;
-    ui->textEdit->insertPlainText("\n row:"+QString::number(y));
-    ui->textEdit->insertPlainText("\n column:"+QString::number(x));
-
-    //g: movement from starting point
-    g=(abs(y-rowI)+abs(x-colI));
-    ui->textEdit->insertPlainText("\n g value:"+QString::number(g));
-    //h: movement to final destination
-    h=(abs(y-rowF)+abs(x-colF));
-    ui->textEdit->insertPlainText("\n h value:"+QString::number(h));
-    f=g+h;
-    ui->textEdit->insertPlainText("\n f value:"+QString::number(f));
-
-    return f;
-}
-
 /*--------------------------------------------------------------------------------------------------------
  *
  * Function Generator related Functions
@@ -899,14 +827,13 @@ int DMFgui::get_Fvalue(int y, int x,int rowI,int colI,int rowF, int colF){
  * CLASS CALL: funcGen()
  * Sends a voltage for the function generator
  */
-//COMMENTED OUT FOR AUTOGEN
-//void DMFgui::on_Voltage_SendButton_clicked(){
-//    QString voltage = ui->lineEdit->text();
-//    float to_Send = voltage.toFloat();
+void DMFgui::on_Voltage_SendButton_clicked(){
+    QString voltage = ui->lineEdit->text();
+    float to_Send = voltage.toFloat();
 
-//    funcgen = new funcGen();
-//    funcgen->send_voltage(to_Send);
-//    }
+    funcgen = new funcGen();
+    funcgen->send_voltage(to_Send);
+    }
 /*--------------------------------------------------------------------------------------------------------
  *
  * nemeSYS related Functions
@@ -934,229 +861,236 @@ void DMFgui::on_targetFlow_clicked(){
 /*
  * display error message if nemeSYS not open
  */
+void DMFgui::nemesysNotOpenedErrorMessage(){
+    QMessageBox::warning(this,tr("NemeSYS not Opened"), tr("Please open NemeSYS first"));
+}
+/*
+ * display error message if nemeSYS already open
+ */
+void DMFgui::nemesysAlreadyOpenedMessage(){
+    QMessageBox::warning(this,tr("NemeSYS Opened"), tr("NemeSYS is already opened"));
+}
+/*
+ * display error message if nemeSYS is busy
+ */
+void DMFgui::nemesysDosingMessage(){
+    QMessageBox::warning(this,tr("NemeSYS is Dosing"), tr("Please wait until Dosing Unit is finished Dosing/Calibrating"));
+}
+/*
+ * display error message if nemeSYS is calibrating
+ * #May be unnecessary, to be confirmed
+ */
+void DMFgui::nemesysCalibrateMessage(){
+    QMessageBox::warning(this,tr("NemeSYS is Calibrating"), tr("Please wait until Dosing Unit is finished Calibrating"));
+}
+/*
+ * opening nemeSYS
+ */
+void DMFgui::on_OpenButton_clicked(){
+    nemesys = new Nemesys();
 
-//COMMENTED OUT FOR AUTOGEN
-//void DMFgui::nemesysNotOpenedErrorMessage(){
-//    QMessageBox::warning(this,tr("NemeSYS not Opened"), tr("Please open NemeSYS first"));
-//}
-///*
-// * display error message if nemeSYS already open
-// */
-//void DMFgui::nemesysAlreadyOpenedMessage(){
-//    QMessageBox::warning(this,tr("NemeSYS Opened"), tr("NemeSYS is already opened"));
-//}
-///*
-// * display error message if nemeSYS is busy
-// */
-//void DMFgui::nemesysDosingMessage(){
-//    QMessageBox::warning(this,tr("NemeSYS is Dosing"), tr("Please wait until Dosing Unit is finished Dosing/Calibrating"));
-//}
-///*
-// * display error message if nemeSYS is calibrating
-// * #May be unnecessary, to be confirmed
-// */
-//void DMFgui::nemesysCalibrateMessage(){
-//    QMessageBox::warning(this,tr("NemeSYS is Calibrating"), tr("Please wait until Dosing Unit is finished Calibrating"));
-//}
-///*
-// * opening nemeSYS
-// */
-//void DMFgui::on_OpenButton_clicked(){
-//    nemesys = new Nemesys();
+    if (!opened){
+        nemesys->openConnection();
+    }
+    else{
+        nemesysAlreadyOpenedMessage();
+    }
+    opened = true;
+}
+/*
+ * closing nemeSYS
+ */
+void DMFgui::on_CloseButton_clicked(){
+    if (opened){
+        nemesys->closeConnection();
+        opened = false;
+    }
+    else{
+        nemesysNotOpenedErrorMessage();
+    }
+}
+/*
+ * dosing from syringe
+ * For now, put a positive volume and negative flow
+ */
+void DMFgui::on_doseButton_clicked(){
+    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)// && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
+    {
+        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());        //which syringe to use
 
-//    if (!opened){
-//        nemesys->openConnection();
-//    }
-//    else{
-//        nemesysAlreadyOpenedMessage();
-//    }
-//    opened = true;
-//}
-///*
-// * closing nemeSYS
-// */
-//void DMFgui::on_CloseButton_clicked(){
-//    if (opened){
-//        nemesys->closeConnection();
-//        opened = false;
-//    }
-//    else{
-//        nemesysNotOpenedErrorMessage();
-//    }
-//}
-///*
-// * dosing from syringe
-// * For now, put a positive volume and negative flow
-// */
-//void DMFgui::on_doseButton_clicked(){
-//    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)// && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
-//    {
-//        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());        //which syringe to use
+        double volume = ui->targetVolumeEdit->text().toDouble();
+        double flow = ui->targetFlowRateEdit->text().toDouble();
 
-//        double volume = ui->targetVolumeEdit->text().toDouble();
-//        double flow = ui->targetFlowRateEdit->text().toDouble();
+        unsigned char volumeUnit = (unsigned char)(ui->unitsComboBox->currentIndex());
+        nemesys->setActiveVolumeUnit(dosingUnit, volumeUnit);
+        unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
+        nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
 
-//        unsigned char volumeUnit = (unsigned char)(ui->unitsComboBox->currentIndex());
-//        nemesys->setActiveVolumeUnit(dosingUnit, volumeUnit);
-//        unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
-//        nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
+        nemesys->DoseVolume(dosingUnit, volume,flow);
+    }
+    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
+        nemesysDosingMessage();
+    }
 
-//        nemesys->DoseVolume(dosingUnit, volume,flow);
-//    }
-//    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
-//        nemesysDosingMessage();
-//    }
+    //May be unnecessary, to be confirmed
+    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
+        nemesysCalibrateMessage();
+    }
+    else if (!opened){
+        nemesysNotOpenedErrorMessage();
+    }
+}
+/*
+ * emptying syringe
+ * For now put a positive flow value
+ */
+void DMFgui::on_emptyButton_clicked()
+{
+    //Open and not dosing or calibrating
+    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)    // && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
+    {
+        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
 
-//    //May be unnecessary, to be confirmed
-//    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
-//        nemesysCalibrateMessage();
-//    }
-//    else if (!opened){
-//        nemesysNotOpenedErrorMessage();
-//    }
-//}
-///*
-// * emptying syringe
-// * For now put a positive flow value
-// */
-//void DMFgui::on_emptyButton_clicked()
-//{
-//    //Open and not dosing or calibrating
-//    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)    // && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
-//    {
-//        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
+        double flow = ui->targetFlowRateEdit->text().toDouble();
+        unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
+        nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
 
-//        double flow = ui->targetFlowRateEdit->text().toDouble();
-//        unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
-//        nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
+        nemesys->EmptySyringe(dosingUnit, flow);                                                //only flow matters for emptying
+    }
+    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0) {
+         nemesysDosingMessage();
+    }
+    //May be unnecessary, to be confirmed
+    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
+        nemesysCalibrateMessage();
+    }
+    else if (!opened){
+         nemesysNotOpenedErrorMessage();
+    }
+}
+/*
+ * refilling syringe
+ * For now, ensure that you have a negative flow value
+ */
+void DMFgui::on_refillButton_clicked()
+{
+    //Open and not dosing or calibrating
+    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)// && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
+    {
+        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
 
-//        nemesys->EmptySyringe(dosingUnit, flow);                                                //only flow matters for emptying
-//    }
-//    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0) {
-//         nemesysDosingMessage();
-//    }
-//    //May be unnecessary, to be confirmed
-//    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
-//        nemesysCalibrateMessage();
-//    }
-//    else if (!opened){
-//         nemesysNotOpenedErrorMessage();
-//    }
-//}
-///*
-// * refilling syringe
-// * For now, ensure that you have a negative flow value
-// */
-//void DMFgui::on_refillButton_clicked()
-//{
-//    //Open and not dosing or calibrating
-//    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)// && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
-//    {
-//        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
+        double flow = ui->targetFlowRateEdit->text().toDouble();
+        unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
+        nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
 
-//        double flow = ui->targetFlowRateEdit->text().toDouble();
-//        unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
-//        nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
+        nemesys->RefillSyringe(dosingUnit, flow);
+    }
+    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
+         nemesysDosingMessage();
+    }
+    //May be unnecessary, to be confirmed
+    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
+        nemesysCalibrateMessage();
+    }
+    else if (!opened){
+         nemesysNotOpenedErrorMessage();
+    }
+}
+/*
+ * Calibrates nemeSYS
+ */
+void DMFgui::on_CalibrateButton_clicked()
+{
+    //Open and not dosing
+    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)// && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
+    {
 
-//        nemesys->RefillSyringe(dosingUnit, flow);
-//    }
-//    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
-//         nemesysDosingMessage();
-//    }
-//    //May be unnecessary, to be confirmed
-//    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
-//        nemesysCalibrateMessage();
-//    }
-//    else if (!opened){
-//         nemesysNotOpenedErrorMessage();
-//    }
-//}
-///*
-// * Calibrates nemeSYS
-// */
-//void DMFgui::on_CalibrateButton_clicked()
-//{
-//    //Open and not dosing
-//    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)// && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
-//    {
+        //Warning Message to make sure no syringes are placed
+        QMessageBox calibrateBox;
+        calibrateBox.setWindowTitle("Calibration Warning");
+        calibrateBox.setText("Please ensure that no syringes are placed in the dosing unit.\nExecuting the calibration move with a syringe fitted on the device may cause damage to the syringe.\n\nAre you ready?");
+        QAbstractButton* pButtonYes = calibrateBox.addButton(tr("Yes"), QMessageBox::YesRole);
+        calibrateBox.addButton(tr("No"), QMessageBox::NoRole);
 
-//        //Warning Message to make sure no syringes are placed
-//        QMessageBox calibrateBox;
-//        calibrateBox.setWindowTitle("Calibration Warning");
-//        calibrateBox.setText("Please ensure that no syringes are placed in the dosing unit.\nExecuting the calibration move with a syringe fitted on the device may cause damage to the syringe.\n\nAre you ready?");
-//        QAbstractButton* pButtonYes = calibrateBox.addButton(tr("Yes"), QMessageBox::YesRole);
-//        calibrateBox.addButton(tr("No"), QMessageBox::NoRole);
+        calibrateBox.exec();
 
-//        calibrateBox.exec();
+        //Execute calibration if user is ready
+        if (calibrateBox.clickedButton()==pButtonYes) {
+            unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
 
-//        //Execute calibration if user is ready
-//        if (calibrateBox.clickedButton()==pButtonYes) {
-//            unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
+            unsigned char volumeUnit = (unsigned char)(ui->unitsComboBox->currentIndex());
+            nemesys->setActiveVolumeUnit(dosingUnit, volumeUnit);
 
-//            unsigned char volumeUnit = (unsigned char)(ui->unitsComboBox->currentIndex());
-//            nemesys->setActiveVolumeUnit(dosingUnit, volumeUnit);
+            unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
+            nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
 
-//            unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
-//            nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
+            nemesys->CalibrateUnit(dosingUnit);
+            nemesys->CheckCalibrateStatus(dosingUnit);
+        }
+    }
+    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
+        nemesysDosingMessage();
 
-//            nemesys->CalibrateUnit(dosingUnit);
-//            nemesys->CheckCalibrateStatus(dosingUnit);
-//        }
-//    }
-//    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
-//        nemesysDosingMessage();
+    }
+    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
+        nemesysCalibrateMessage();
+    }
+    else if (!opened){
+        nemesysNotOpenedErrorMessage();
+    }
 
-//    }
-//    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
-//        nemesysCalibrateMessage();
-//    }
-//    else if (!opened){
-//        nemesysNotOpenedErrorMessage();
-//    }
+}
+/*
+ * Stopping nemeSYS
+ */
+void DMFgui::on_StopButton_clicked()
+{
+    if(!opened){
+        nemesysNotOpenedErrorMessage();
+    }
+    else{
+        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
+        nemesys->StopUnit(dosingUnit);
+    }
+}
+/*
+ * not really sure.
+ */
+/*void DMFgui::on_MonitorButton_toggled(bool checked)
+{
+    if (checked){
+        ui->MButton->setDown(true);
+        ui->MButton->setAutoRepeat(true);
+        ui->MButton->setAutoRepeatDelay(100);
+        ui->MButton->setAutoRepeatInterval(100);
+    }
+    else{ 
+        ui->MButton->setAutoRepeat(false);
+        ui->MButton->setDown(false);
+    }
 
-//}
-///*
-// * Stopping nemeSYS
-// */
-//void DMFgui::on_StopButton_clicked()
-//{
-//    if(!opened){
-//        nemesysNotOpenedErrorMessage();
-//    }
-//    else{
-//        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
-//        nemesys->StopUnit(dosingUnit);
-//    }
-//}
-///*
-// * not really sure.
-// */
-//void DMFgui::on_MonitorButton_toggled(bool checked)
-//{
-//    if (checked){
-//        ui->MButton->setDown(true);
-//        ui->MButton->setAutoRepeat(true);
-//        ui->MButton->setAutoRepeatDelay(100);
-//        ui->MButton->setAutoRepeatInterval(100);
-//    }
-//    else{
-//        ui->MButton->setAutoRepeat(false);
-//        ui->MButton->setDown(false);
-//    }
+}
+/*
+ *  Monitoring the levels of the syringes
+ * updates when the Monitor button is clicked
+ */
+/*void DMFgui::on_MButton_clicked()
+{
+    double actualFlow = nemesys->getActualFlowRate(0) ;
+    double actualSyringe = nemesys->getActualSyringeLevel(0);
 
-//}
-///*
-// *  Monitoring the levels of the syringes
-// * updates when the Monitor button is clicked
-// */
-//void DMFgui::on_MButton_clicked()
-//{
-//    double actualFlow = nemesys->getActualFlowRate(0) ;
-//    double actualSyringe = nemesys->getActualSyringeLevel(0);
+    ui->TargetMonitorFlowRate->setText(QString::number(actualFlow));
+    ui->TargetMonitorSyringeLevel->setText(QString::number(actualSyringe));
+}
+*/
 
-//    ui->TargetMonitorFlowRate->setText(QString::number(actualFlow));
-//    ui->TargetMonitorSyringeLevel->setText(QString::number(actualSyringe));
-//}
+/*
+ * Monitoring functions for the nemesys
+ * Each dosing unit has it's own function
+ */
+
+
+
 /*
  * Monitoring mouse movement
  * #is this even useful?
@@ -1174,6 +1108,7 @@ void DMFgui::mousePressEvent(QMouseEvent *e)
    double* sL = nemesys->getSyringeLevels(0, sminL,smaxL);
    ui->TargetMonitorFlowRate->setText(QString::number(sL[0]));
    ui->TargetMonitorSyringeLevel->setText(QString::number(sL[1]));
+
  */
 
 /*--------------------------------------------------------------------------------------------------------
@@ -1217,3 +1152,375 @@ void DMFgui::mousePressEvent(QMouseEvent *e)
 //{
 //    set_Scene();
 //}
+
+/*-------------------------------------------------------------
+ *
+ * FUNCTIONS
+ * Write to text file
+ * Read from text file
+ * Preview electrodes to be turned on
+ * Allow users to write to Montior
+ *
+ -------------------------------------------------------------*/
+
+/*
+ * Write data in serial monitor to a text file
+ *
+ * TO DO: We would like the user to be able to name the file and create multiple text files
+ */
+
+void DMFgui::on_writeButton_clicked()
+{
+    if (!mapCreated){
+        mapNotCreatedErrorMessage();
+    }
+    else{
+        //C:/Users/kaleem/Summer_2016/Steve Shih Project/GitHub/dmf3/DMF-master (2)/DMF-master/dmf32/ex.txt
+        //Ensure that the path is correct, in this case, it places it in the build folder
+
+        QFile file ("ex3.txt");
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+            return;
+        QTextStream out(&file);
+        out << ui->textEdit->toPlainText();
+    }
+}
+
+/*
+ * Read data from a text file and display on to serial monitor
+ *
+ * TO DO: We would like the user to be able to READ from different text files that have been created
+ * It may be best to create a new window containing all of the text files that relate to DMFGUI
+ *
+ */
+
+void DMFgui::on_readButton_clicked()
+{
+    if (!mapCreated){
+        mapNotCreatedErrorMessage();
+    }
+    else{
+        //C:/Users/kaleem/Summer_2016/Steve Shih Project/GitHub/dmf3/DMF-master (2)/DMF-master/dmf32/ex.txt
+        //Ensure that the path is correct, in this case, it places it in the build folder
+
+        QFile file ("ex3.txt");
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+            return;
+        QTextStream in(&file);
+        QString line;
+
+        //QString is suppose to append the next line after the previous one, however this isn't working exactly as expected, instead the line is inserted before
+        while (!in.atEnd()) {
+             line = in.readLine().insert(0,line);
+        }
+
+        //Display lines
+
+        ui->textEdit->setPlainText(line);
+
+    }
+}
+
+/*
+ * Preview the electrodes to be turned on based on data in the serial monitor
+*/
+
+void DMFgui::on_previewButton_clicked()
+{
+    if (!mapCreated){
+        mapNotCreatedErrorMessage();
+    }
+
+    else {
+        QString prevElec = ui->textEdit->toPlainText();
+        QStringList elec = prevElec.split(",");
+        //Preview delay is set in seconds, so multiply by 1000 to give seconds from milliseconds
+        double previewDelay = ui->previewSpeedEdit->text().toDouble()*1000;
+        QString prevcolor = "red";  //Default color
+        ui->textEdit->clear();
+        for (int a = 0; a<elec.size(); a++){
+
+            //If statements set the color
+
+            if(elec.at(a).toInt()==1000){
+                prevcolor = "red";
+                ui->textEdit->insertPlainText(elec.at(a)+",");
+                qApp->processEvents();
+                Sleep(previewDelay);
+            }
+            else if (elec.at(a).toInt()==1003){
+                prevcolor = "orange";
+                ui->textEdit->insertPlainText(elec.at(a)+",");
+                qApp->processEvents();
+                Sleep(previewDelay);
+            }
+
+            //Temporary solution, it only splits two electrodes, need to come up with a better solution
+            else if (elec.at(a).toInt()==1001){
+                prevcolor = "blue";
+                int b = a+1;
+                int c = a+2;
+
+
+                ui->textEdit->insertPlainText(elec.at(a)+",");
+                qApp->processEvents();
+                Sleep(previewDelay);
+
+                ui->textEdit->insertPlainText(elec.at(b)+",");
+                ui->textEdit->insertPlainText(elec.at(c)+",");
+
+                //Get index of the element one positions away from 1001
+                int* pete = returnIndex(dmf_array,newrow,newcolumn,elec.at(b).toInt());
+                int row1 = pete[0];
+                int col1 = pete[1];
+
+                //Get index of the element two positions away from 1001
+                int* pete2 = returnIndex(dmf_array,newrow,newcolumn,elec.at(c).toInt());
+                int row2 = pete2[0];
+                int col2 = pete2[1];
+
+                dmf_array[row1][col1].setStyleSheet("background-color:"+prevcolor+"; border-style: outset ;border-width: 2px; border-color: grey");
+                dmf_array[row2][col2].setStyleSheet("background-color:"+prevcolor+"; border-style: outset ;border-width: 2px; border-color: grey");
+                qApp->processEvents();
+                Sleep(previewDelay);
+                dmf_array[row1][col1].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+                dmf_array[row2][col2].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+                qApp->processEvents();
+                a+=2;
+
+            }
+
+            //Sets the color of the electrode in question, turns it on and off after a short delay
+            else{
+
+                //Get index of the current element
+                int* pete = returnIndex(dmf_array,newrow,newcolumn,elec.at(a).toInt());
+
+                //Store locally in this loop (may be unnecessary)
+                int row1 = pete[0];
+                int col1 = pete[1];
+
+                ui->textEdit->insertPlainText(elec.at(a)+",");
+                dmf_array[row1][col1].setStyleSheet("background-color:"+prevcolor+"; border-style: outset ;border-width: 2px; border-color: grey");
+                qApp->processEvents();
+                Sleep(previewDelay);
+                dmf_array[row1][col1].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+                qApp->processEvents();
+            }
+        }
+        //ui->textEdit->insertPlainText("Preview is Done");
+    }
+}
+
+/*
+ * Get the index from the electrodes's value
+*/
+
+int* DMFgui::returnIndex(QPushButton** arr,int sizerow, int sizecol, int seek){
+    int val [2];
+    int err [2] = {-1,-1};
+    for (int i=0;i<sizerow;i++){
+        for (int j = 0; j<sizecol; j++){
+            if (arr[i][j].text().toInt()==seek){
+                val[0]=i;
+                val[1]=j;
+                return val;
+            }
+        }
+    }
+    return err;
+}
+
+/*
+ * Error message if the map/grid has not be created yet
+*/
+
+void DMFgui::mapNotCreatedErrorMessage()
+{
+    QMessageBox::warning(this,tr("Map Creation"), tr("Map is not created yet"));
+}
+
+/*
+ * Allow user to write directly to serial monitor
+ * User should be WARNED that error may occur if the serial text is not formatted properly
+*/
+
+void DMFgui::on_writeToMonitorBox_clicked(bool checked)
+{
+    if (checked){
+        ui->textEdit->setReadOnly(false);
+    }
+    else
+        ui->textEdit->setReadOnly(true);
+}
+
+void DMFgui::on_MonitorBox1_clicked(bool checked)
+{
+    if (checked && opened)
+    {
+        int rate = ui->targetRefreshRateEdit->text().toInt();
+        ui->MButton1->setDown(true);
+        ui->MButton1->setAutoRepeat(true);
+        ui->MButton1->setAutoRepeatDelay(rate);
+        ui->MButton1->setAutoRepeatInterval(rate);
+    }
+    else if (!opened)
+    {
+        nemesysNotOpenedErrorMessage();
+        ui->MonitorBox1->setChecked(false);
+    }
+    else
+    {
+        ui->MButton1->setAutoRepeat(false);
+        ui->MButton1->setDown(false);
+    }
+}
+
+void DMFgui::on_MonitorBox2_clicked(bool checked)
+{
+    if (checked && opened)
+    {
+        int rate = ui->targetRefreshRateEdit->text().toInt();
+        ui->MButton2->setDown(true);
+        ui->MButton2->setAutoRepeat(true);
+        ui->MButton2->setAutoRepeatDelay(rate);
+        ui->MButton2->setAutoRepeatInterval(rate);
+    }
+    else if (!opened)
+    {
+        nemesysNotOpenedErrorMessage();
+        ui->MonitorBox2->setChecked(false);
+    }
+    else
+    {
+        ui->MButton2->setAutoRepeat(false);
+        ui->MButton2->setDown(false);
+    }
+}
+
+void DMFgui::on_MonitorBox3_clicked(bool checked)
+{
+    if (checked && opened)
+    {
+        int rate = ui->targetRefreshRateEdit->text().toInt();
+        ui->MButton3->setDown(true);
+        ui->MButton3->setAutoRepeat(true);
+        ui->MButton3->setAutoRepeatDelay(rate);
+        ui->MButton3->setAutoRepeatInterval(rate);
+    }
+    else if (!opened)
+    {
+        nemesysNotOpenedErrorMessage();
+        ui->MonitorBox3->setChecked(false);
+    }
+    else
+    {
+        ui->MButton3->setAutoRepeat(false);
+        ui->MButton3->setDown(false);
+    }
+}
+
+void DMFgui::on_MButton1_clicked()
+{
+    double actualFlow = nemesys->getActualFlowRate(0) ;
+    double actualSyringe = nemesys->getActualSyringeLevel(0);
+
+    ui->TargetMonitorFlowRate_1->setText(QString::number(actualFlow));
+    ui->TargetMonitorSyringeLevel_1->setText(QString::number(actualSyringe));
+}
+
+void DMFgui::on_MButton2_clicked()
+{
+    double actualFlow = nemesys->getActualFlowRate(1) ;
+    double actualSyringe = nemesys->getActualSyringeLevel(1);
+
+    ui->TargetMonitorFlowRate_2->setText(QString::number(actualFlow));
+    ui->TargetMonitorSyringeLevel_2->setText(QString::number(actualSyringe));
+}
+
+void DMFgui::on_MButton3_clicked()
+{
+    double actualFlow = nemesys->getActualFlowRate(2) ;
+    double actualSyringe = nemesys->getActualSyringeLevel(2);
+
+    ui->TargetMonitorFlowRate_3->setText(QString::number(actualFlow));
+    ui->TargetMonitorSyringeLevel_3->setText(QString::number(actualSyringe));
+}
+
+void DMFgui::on_readPCBinfoButton_clicked()
+{
+
+    QFile file ("red_10elec.txt");
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+    QTextStream in(&file);
+    QString line;
+    QStringList a;
+    int count =0;
+    //READ TXT FILE CONTAINING ELECTRODE + CONTACT PAD INFORMATION
+    //FILTERS OUT LINES THAT DON'T CONTAIN NECESSARY INFO
+
+    while (!in.atEnd()) {
+         line = in.readLine();//.insert(0,line);
+
+         //STORE LINES THAT CONTAIN T1 ==> THIS REPRESENTS RESDES,
+         if(line.contains("T1.", Qt::CaseInsensitive)){
+             a.append(line);
+             count++;
+         }
+    }
+
+    QStringList b;
+
+    //Not needed for now
+    //    QRegExp rx("(\\ |\\.)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
+    //    QStringList query = sometext.split(rx);
+
+    for(int i=0;i<count;i++){
+        b = a.at(i).split(" ");
+        sort(b.begin(),b.end());                            //SORTING ENSURES THAT ALL OF THE ELECTRODES ARE TO THE LEFT, THIS IS TO ENSURE THAT ASCENDING SORTING CAN BE DONE
+
+        if(b.at(5).length()<6){                             //ADDs "0"s if needed, this is to ensure that sorting is done properly
+            int a = 6-b.at(5).length();                     //CALCULATES THE NUMBER of "0"s to add
+            QStringList c = b.at(5).split(".");
+            QString d;                                      //CRUDE METHOD FOR NOW: ADD "0" depending on how many need to be added)
+            if(a==1){
+                d="0";
+            }
+            else if(a==2){
+                d="00";
+            }
+            else if(a==3){
+                d="000";
+            }
+
+            b.replace(5,(c.at(0)+"."+d+c.at(1)));           //CONCATENATES ADDED "0"s
+        }
+
+
+        a.replace(i,(b.at(5)+" "+b.at(6)));                 //CONCATENATES CONTACT PADS AND ELECTRODES BACK TOGETHER
+        //ui->textEdit->insertPlainText(a.at(i)+"\n");
+    }
+    sort(a.begin(),a.end());                                //SORTS INTO ASCENDING ORDER LIST OF ELECTRODES WITH THEIR RESPECTIVE CONTACT PADS
+    //QStringList ordCP;                                      //WILL CONTAIN THE LIST OF THE CONTACT PADS IN ORDER OF ASCENDING ELECTRODES *MOST LIKELY WILL BE A GLOBAL VARIABLE*
+    QStringList tempCP;
+    QRegExp rx("(\\ |\\.)"); //RegEx for ' ' or ','
+    for(int k = 0;k<count;k++){
+        tempCP = a.at(k).split(rx);
+       // ui->textEdit->insertPlainText(tempCP.at(3)+"\n");
+        ordCP.append(tempCP.at(3));
+    }
+    for(int w=0;w<ordCP.length();w++){
+        ui->textEdit->insertPlainText(ordCP.at(w)+"\n");        //ONLY DISPLAYS RESPECTIVE CONTACT PADS
+    }
+    ui->textEdit->insertPlainText("LENGTH: "+ QString::number(ordCP.length()));
+}
+
+void DMFgui::on_realTimeSequencingBox_clicked(bool checked)
+{
+    if (checked){
+        realTime = true;
+    }
+    else
+        realTime = false;
+}
