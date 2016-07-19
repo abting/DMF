@@ -19,9 +19,7 @@ SOURCES +=\
     dmfgui.cpp \
     dialog.cpp \
     nemesys.cpp \
-    newlayout.cpp \
-    savelayout.cpp \
-    loadlayout.cpp
+    node.cpp
 
 HEADERS  += dmfgui.h \
     dialog.h \
@@ -31,15 +29,10 @@ HEADERS  += dmfgui.h \
     nemesys.h \
     nemesys_api.h \
     err_codes.h \
-    newlayout.h \
-    savelayout.h \
-    loadlayout.h
+    node.h
 
 FORMS    += dmfgui.ui \
-    dialog.ui \
-    newlayout.ui \
-    savelayout.ui \
-    loadlayout.ui
+    dialog.ui
 
 RESOURCES += \
     dmf_scene_v2.qrc \
@@ -53,6 +46,7 @@ INCLUDEPATH += $$PWD/WinNT
 DEPENDPATH += $$PWD/WinNT
 
 win32:!win32-g++: PRE_TARGETDEPS += $$PWD/WinNT/visa32.lib
+else:win32-g++: PRE_TARGETDEPS += $$PWD/WinNT/libvisa32.a
 
 win32: LIBS += -L$$PWD/Win64/ -lvisa32
 
@@ -60,6 +54,7 @@ INCLUDEPATH += $$PWD/Win64
 DEPENDPATH += $$PWD/Win64
 
 win32:!win32-g++: PRE_TARGETDEPS += $$PWD/Win64/visa32.lib
+else:win32-g++: PRE_TARGETDEPS += $$PWD/Win64/libvisa32.a
 
 win32: LIBS += -L$$PWD/Win64/ -lvisa64
 
@@ -67,4 +62,5 @@ INCLUDEPATH += $$PWD/Win64
 DEPENDPATH += $$PWD/Win64
 
 win32:!win32-g++: PRE_TARGETDEPS += $$PWD/Win64/visa64.lib
+else:win32-g++: PRE_TARGETDEPS += $$PWD/Win64/libvisa64.a
 

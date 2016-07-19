@@ -151,7 +151,7 @@ double Nemesys::getActualFlowRate(unsigned char doseUnit) {
     if (ERR_NOERR != ErrCode)
     {
         HandleError(ErrCode);
-        cout << " getActual FlowRate Error: " << ErrCode;
+        cout << " getActual FlowRate Error: " << ErrCode << " on Dosing unit:" << doseUnit;
         return -1;
     }
     return aFlowRate;
@@ -172,7 +172,7 @@ double Nemesys::getActualSyringeLevel(unsigned char doseUnit) {
     if (ERR_NOERR != ErrCode)
     {
         HandleError(ErrCode);
-        cout << " getActual SyringeLevel Error: " << ErrCode;
+        cout << " getActual SyringeLevel Error: " << ErrCode << " on Dosing unit:" << doseUnit;
         return -1;
     }
     return aSyringeLevel;
