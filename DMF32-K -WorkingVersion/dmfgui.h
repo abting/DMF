@@ -96,18 +96,6 @@ private slots:
 
     void on_StopButton_clicked();
 
-    void on_MButton1_clicked();
-
-    void on_MonitorBox1_toggled(bool checked);
-
-    void on_MonitorBox2_toggled(bool checked);
-
-    void on_MButton2_clicked();
-
-    void on_MonitorBox3_toggled(bool checked);
-
-    void on_MButton3_clicked();
-
     void on_writeButton_clicked();
 
     void on_ReadButton_clicked();
@@ -121,10 +109,6 @@ private slots:
     void on_PreviewButton_clicked();
 
     void on_realTimeBox_clicked(bool checked);
-
-    void on_readCSVButton_clicked();
-
-    void on_fillTextButton_clicked();
 
     void csvFileNotRead();
 
@@ -141,6 +125,18 @@ private slots:
     QString findEmptySpace(int,int);
 
     void map_reservoir(int,int);
+
+    void on_MonitorBox1_clicked(bool checked);
+
+    void on_MonitorBox2_clicked(bool checked);
+
+    void on_MonitorBox3_clicked(bool checked);
+
+    void on_MButton1_clicked();
+
+    void on_MButton2_clicked();
+
+    void on_MButton3_clicked();
 
 private:
     Ui::DMFgui *ui;

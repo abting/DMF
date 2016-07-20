@@ -46,7 +46,7 @@ void newlayout::on_cancelButton_clicked()
 QString newlayout::on_loadContactPadInfoButton_clicked()
 {
     QString fileName = QFileDialog::getOpenFileName(this,
-    tr("Open Text files"), "C:/Users/kaleem/Summer_2016/Steve Shih Project/ContactPadFiles", tr("Text Files (*.txt)"));
+    tr("Open Text files"), "C:/Users/umroot/Documents/Working_DMFGUI/DMF32-K -WorkingVersion/ContactPadFiles", tr("Text Files (*.txt)"));
     ui->loadCPadInfoEdit->setText(fileName);
     return fileName;
 }

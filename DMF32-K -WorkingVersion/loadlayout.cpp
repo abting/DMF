@@ -19,7 +19,7 @@ loadlayout::~loadlayout()
 QString loadlayout::on_openLayoutButton_clicked()
 {
     QString fileName = QFileDialog::getOpenFileName(this,
-    tr("Open Layout Text files"), "C:/Users/kaleem/Summer_2016/Steve Shih Project/LayoutFiles", tr("Text Files (*.txt)"));
+    tr("Open Layout Text files"), "C:/Users/umroot/Documents/Working_DMFGUI/DMF32-K -WorkingVersion/LayoutFiles", tr("Text Files (*.txt)"));
     ui->openLayoutEdit->setText(fileName);
     return fileName;
 }
@@ -27,7 +27,7 @@ QString loadlayout::on_openLayoutButton_clicked()
 QString loadlayout::on_openContactPadButton_clicked()
 {
     QString fileName = QFileDialog::getOpenFileName(this,
-    tr("Open ContactPad Information Text files"), "C:/Users/kaleem/Summer_2016/Steve Shih Project/ContactPadFiles", tr("Text Files (*.txt)"));
+    tr("Open ContactPad Information Text files"), "C:/Users/umroot/Documents/Working_DMFGUI/DMF32-K -WorkingVersion/ContactPadFiles", tr("Text Files (*.txt)"));
     ui->openContactPadEdit->setText(fileName);
     return fileName;
 }
