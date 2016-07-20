@@ -14,11 +14,8 @@
 #include <cstdlib>
 #include <climits>
 #include <QCloseEvent>
-#include <QFile>
-#include <time.h>
-#include <algorithm>
 #include <QStack>
-#include "node.h"
+#include <node.h>
 
 
 QPushButton **dmf_array;
@@ -26,17 +23,14 @@ QGridLayout *gridLayout;
 QSignalMapper *mapper;
 
 //used for numbering the electrodes
-int numberingcount = 0;
-int reservoircount = 0;
-int newrow,newcolumn,resnum,corner;
+int numberingcount = 0;                                          //electrode numbering
+int reservoircount = 0;                                          //reservoir numbering
+int newrow,newcolumn,resnum,corner;                              //newrow, newcolumn = for total rows and columns (including empty spaces)
+                                                                 //resnum = number of reservoirs to be added
+int added = 0;                                                   //keeping track of how many reservoirs were added
 
-QString row,column;         //Temporairly global variables
-
-int added = 0;
-int elec = 1;
-
-QString to_Send = "";
-bool enter_Button_Clicked =false;
+QString to_Send = "";                                            //Information that gets passed to the Arduino
+bool enter_Button_Clicked =false;                                //ensures that user does not press the enter Button twice
 
 //for nemesys
 double flowRate;
@@ -44,39 +38,22 @@ double volume;
 bool opened = false;
 bool dosing = false;
 
-bool addRes = false;
+bool addRes = false;                                             //true if need to keep adding reservoirs.
+                                                                 //false if all reservoirs were added
 
-bool mapCreated = false;    //From my understanding this signifies that the grid + reservoirs has been created
+bool mapCreated = false;                                        //True if the map (Grid) has been created
 
-bool realTime = false;
+bool realTime = false;                                          //If true, turn on electrodes one at a time in real-time
 
-QStringList ordCP;
+QStringList ordCP;                                              //This contains the Contact PAD Information from DIPTRACE
 
-bool csvFileRead = false;
-
-bool deleteButtonchoice = false;
-
-bool defaultNumbering = false;
-
-bool newWindowButtonpressed = false;
-
-bool loadWindowButtonpressed = false;
-
-int numberofButtons;
-
-QList<int> Coordz;
-
-bool coordsStored = false;      // may be temporary
-
-int x;
-int y;
 
 //Used for Autogen path, color assignments
 int* rcoord;
 int* ccoord;
 int track[4];
 int size1;
-int firstR,firstC;
+int firstR,firstC;                                               //for clearing purposes
 boolean autoGen = false;
 
 //dimensions
@@ -85,31 +62,31 @@ int verticalSize;
 int avail;
 int *eavail;
 
-//Testing purposes
-int aa =0;
-int bb =0;
-int cc =1000;
-int dd =1000;
-int ee = 2000;
-int ff = 2000;
-
-
-struct coordinates
-{
+int elec = 1;                                                    //Start by adding values to the first electrode
+/*
+ * Structure of an electrode, array of 2 electrodes and stores their coordinates
+ */
+struct coordinates{
     int x;
     int y;
 }electrode_1,electrode_2;
 
+/*--------------------------------------------------------------------------------------------------------
+ *
+ * Setting up GUI and basic button functions
+ * #TODO:Monitoring progress of the execution of the commands
+ *       Implementing feedback system
+ *
+--------------------------------------------------------------------------------------------------------*/
 DMFgui::DMFgui(QWidget *parent) :
     QDialog(parent),
-    ui(new Ui::DMFgui)
-{
+    ui(new Ui::DMFgui){
     ui->setupUi(this);
 
     arduino_is_available = false;
     arduino_port_name = "";
 
-    ui->textEdit->setReadOnly(true); //not allowing user to change anything
+    ui->textEdit->setReadOnly(true);                             //not allowing user to change anything
 
     //for Nemesys
     ui->targetVolumeEdit->setReadOnly(true);
@@ -119,6 +96,7 @@ DMFgui::DMFgui(QWidget *parent) :
     ui->unitsComboBox->addItem("mL");
     ui->unitsComboBox->addItem("L");
     ui->unitsComboBox->addItem("mm");
+    ui->unitsComboBox->setCurrentIndex(1);
 
     ui->funitscomboBox->addItem("nL/s");
     ui->funitscomboBox->addItem("nL/min");
@@ -128,14 +106,14 @@ DMFgui::DMFgui(QWidget *parent) :
     ui->funitscomboBox->addItem("mL/min");
     ui->funitscomboBox->addItem("mL/h");
     ui->funitscomboBox->addItem("mm/s");
+    ui->funitscomboBox->setCurrentIndex(2);
 
     ui->dosingUnitscomboBox->addItem("1");
     ui->dosingUnitscomboBox->addItem("2");
     ui->dosingUnitscomboBox->addItem("3");
 
-    //defining arduino here
+    //defining arduino
     arduino=new QSerialPort;
-
     foreach(const QSerialPortInfo &serialPortInfo, QSerialPortInfo::availablePorts())
     {
         if (serialPortInfo.hasVendorIdentifier()&& serialPortInfo.hasProductIdentifier())
@@ -152,62 +130,55 @@ DMFgui::DMFgui(QWidget *parent) :
     }
     if (arduino_is_available){
 
-        //open and configure the serialport
-        //set the port name
-        arduino->setPortName(arduino_port_name);
-
-        //open it, only sending command, not writing anything (so writeOnly)
-        //arduino->open(QSerialPort::WriteOnly);
-        arduino->open(QSerialPort::ReadWrite);
-
-
-        //make sure that Baud rate matches what's on the arduino
-        arduino->setBaudRate(QSerialPort::Baud9600);
+        arduino->setPortName(arduino_port_name);                 //open and configure the serialport
+        arduino->open(QSerialPort::WriteOnly);                   //open it, only sending command, not writing anything (so writeOnly)
+        arduino->setBaudRate(QSerialPort::Baud9600);             //make sure that Baud rate matches what's on the arduino
         arduino->setDataBits(QSerialPort::Data8);
         arduino->setParity(QSerialPort::NoParity);
         arduino->setStopBits(QSerialPort::OneStop);
         arduino->setFlowControl(QSerialPort::NoFlowControl);
 
     }
-    else{
-        //give an error message, (no arduino available)
+    else{                                                        //give an error message, (no arduino available)
         QMessageBox::warning(this,"Port error", "Couldn't find the Arduino!");
     }
 }
-
-DMFgui::~DMFgui()
-{
-    if (arduino->isOpen())
-    {
+DMFgui::~DMFgui(){
+    if (arduino->isOpen()){
         arduino->close();
     }
     delete ui;
 }
-
+/*
+ * "x" button on the main window
+ */
 void DMFgui::closeEvent(QCloseEvent *event){
-
-    if (opened){
+    if (opened){                                                 //close nemesys if it was opened
         nemesys->closeConnection();
     }
-    event -> accept();
+    event -> accept();                                           //allows the main window to close
 }
-
-void DMFgui::save_to_String(QString electrode_num)
-{
+/*
+ * Information that gets sent to Arduino
+ */
+void DMFgui::save_to_String(QString electrode_num){              //#LOOK INTO STRINGSTREAM
     to_Send += electrode_num + ",";
-
-    if (electrode_num=="Sequence" || electrode_num=="Split"|| electrode_num=="Mix")
-    {
-        ui->textEdit->insertPlainText("\n"+electrode_num + ",");
+    if (electrode_num=="1000" || electrode_num=="1001"|| electrode_num=="1003"){
+        ui->textEdit->insertPlainText("\n"+electrode_num + ","); //special commands.
     }
-    else
-    {
-        ui->textEdit->insertPlainText(""+electrode_num + ","); //find a way to have this deleted one by one
+    else{                                                        //normal commands
+        ui->textEdit->insertPlainText(""+electrode_num + ",");
     }
+}
+/*
+ * Undo previous information stored in to_Send
+ */
+void DMFgui::on_UndoButton_clicked(){
+    ui->textEdit->undo();                                        //#find a way to have this deleted one by one
 }
 void DMFgui::on_mixButton_clicked()
 {
-    save_to_String("Mix");
+    save_to_String("1003");
 }
 void DMFgui::on_sequenceButton_clicked()
 {
@@ -215,1151 +186,197 @@ void DMFgui::on_sequenceButton_clicked()
 }
 void DMFgui::on_splitButton_clicked()
 {
-    save_to_String("Split");
+    save_to_String("1001");
 }
-void DMFgui::on_resetButton_clicked()
-{
+/*
+ * Closes main window, serves the same purpose as "x" button
+ * #Is this even useful?
+ */
+void DMFgui::on_exitButton_clicked(){
+    QApplication::quit();
+}
+/*--------------------------------------------------------------------------------------------------------
+ *
+ * Arduino related Function
+ * #TODO: Look into StringStream in order to change the values sent to arduino
+ *
+--------------------------------------------------------------------------------------------------------*/
+/*
+ * Reset information being sent to Arduino
+ */
+void DMFgui::on_resetButton_clicked(){
     to_Send = "";
     ui->textEdit->clear();
 }
 /*
- * saves most recent coordinates to the autogen path (saves beginning and end)
+ * Sending information to Arduino
  */
-QString DMFgui::autoGeneratePath(const int & xStart,const int & yStart,const int & xFinish,const int & yFinish){
-    //node sets
-    ui->textEdit->insertPlainText("\n START: \n"+QString::number(xStart)+QString::number(xFinish)+QString::number(yStart)+QString::number(yFinish));
-
-    int **closedNodes = new int*[horizontalSize];
-    int **openNodes = new int*[horizontalSize];
-    int **dir_map = new int*[horizontalSize];
-    for (int i=0;i<verticalSize;i++){
-        closedNodes[i] = new int[verticalSize];                 //set of nodes that are already evaluated and marked off
-        openNodes[i] = new int[verticalSize];                   //set of nodes to be evaluated
-        dir_map[i] = new int[verticalSize];                     //map of directions(parent-child connection) keeps track of the different paths
-    }
-
-    //directions
-    const int dir = 4;
-    static int dirX[dir]={1,0,-1,0}; //x direction
-    static int dirY[dir]={0,1,0,-1}; //y direction
-
-    static int index;      //initialized to 0?                                       //static and global variables are initialized to 0
-    QStack<node> stack[2];
-    static node *currentNode;
-    static node *neighborNode;
-
-//reset map
-    for (int y=0;y<horizontalSize;y++){
-        for (int x=0;x<verticalSize;x++){
-            closedNodes[x][y]=0;
-            openNodes[x][y]=0;
-        }
-    }
-
-    //create the start node
-    static node *startNode;
-    startNode = new node(xStart,
-                         yStart,
-                         0,
-                         0);
-    startNode->updatePriority(xFinish,yFinish);
-    activate(startNode->getyPos(),startNode->getxPos(),0);                                       //sets the start node as blue
-
-    //push the start node to the priority queue
-    stack[index].push(*startNode);
-
-    //add to the list of open nodes in order to evaluate the start node
-    openNodes[startNode->getxPos()][startNode->getyPos()] = startNode->getPriority();
-
-    ui->textEdit->insertPlainText("\n before loop\n");
-
-//    //while priority queue is not empty, continue
-    while(!stack[index].empty()){
-
-        ui->textEdit->insertPlainText("\n start of loop\n");
-        auto min = std::min_element( stack[index].begin(), stack[index].end(),
-                                     []( const node &a, const node &b )
-                                     {
-                                         return a.getPriority() < b.getPriority();
-                                     } );
-
-        //get the current node with the highest priority in the priority list (this will be the smallest value, according to the way we set this up)
-        currentNode = new node(min->getxPos(),
-                               min->getyPos(),
-                               min->getDistance(),
-                               min->getPriority());
-        //remove the current node from the priority queue
-        stack[index].erase(min);
-        //add the currentNode into the openNodes (this is actually building a parallel map that stores what to evaluate)
-        openNodes[currentNode->getxPos()][currentNode->getyPos()]=0;
-        //add the currentNode into the closedNodes
-        closedNodes[currentNode->getxPos()][currentNode->getyPos()]=1;
-
-        ui->textEdit->insertPlainText("\n\n XPos:"+ QString::number(currentNode->getxPos()));
-        ui->textEdit->insertPlainText("YPos:"+ QString::number(currentNode->getyPos()) + "\n");
-
-        //check if target has been reached
-        if (currentNode->getxPos()==xFinish && currentNode->getyPos()==yFinish){
-            ui->textEdit->insertPlainText("target has been reached");                            //activates the destination node
-            //return the generated path in a QString
-            QString path = "";
-            int x = currentNode->getxPos();
-            int y = currentNode->getyPos();
-            activate(y,x,2);
-            //back track the whole procress to build a QString
-            while (!(x==xStart && y ==yStart))
-            {
-            ui->textEdit->insertPlainText("\nxStart: "+ QString::number(xStart));
-            ui->textEdit->insertPlainText("\nyStart: "+ QString::number(yStart));
-            ui->textEdit->insertPlainText("\nxBefore: "+ QString::number(x));
-            ui->textEdit->insertPlainText("\nyBefore: "+ QString::number(y));
-                int direction = dir_map[x][y];
-//                path = (direction + dir/2)%dir + path; //CHECK THIS OUT
-                path = dmf_array[y][x].text()+","+path;
-                ui->textEdit->insertPlainText("\ndirection: " + QString::number(direction));
-                x += dirX[direction]; //direction is pointing towards the previous node
-                y += dirY[direction];
-                ui->textEdit->insertPlainText("\n\nxAfter: "+ QString::number(x));
-                ui->textEdit->insertPlainText("\nyAfter: "+ QString::number(y));
-                activate(y,x,1);
-            }
-            //delete the node
-            delete currentNode;
-            //emptying the 'new' node
-            while (!stack[index].empty()){
-                stack[index].pop();
-            }
-            ui->textEdit->insertPlainText("\n\n path: "+ path);
-            return path;
-        break;
-        }
-        //if target hasn't been reached, add all the neighboring nodes to the OpenList + define parents for later tracing
-        else{
-            buildArray(currentNode->getyPos(),currentNode->getxPos());
-            for (int j=0;j<avail;j++){
-                int i = eavail[j];
-                /** coordinates are correct **/
-                int neighborX = currentNode->getxPos()+dirX[i];
-                int neighborY = currentNode->getyPos()+dirY[i];
-
-                ui->textEdit->insertPlainText("\n neighborX:"+ QString::number(neighborX));
-                ui->textEdit->insertPlainText("\n neighborY:"+ QString::number(neighborY));
-                //means that it's unavailable
-
-            if (dmf_array[neighborY][neighborX].text()==""){
-                closedNodes[neighborX][neighborY]=1;
-                ui->textEdit->insertPlainText(" in closedNodes");
-            }
-
-            //TODO: use the code writen for check if avaiable or something
-            //ignore if it's on the closed list or if it has been marked as unavailable
-
-            else if (!(neighborX<0||neighborY<0||neighborX>horizontalSize||neighborY>verticalSize||closedNodes[neighborX][neighborY]==1)){
-                //if it gets here, then generate a neighbor Node
-                neighborNode = new node(neighborX,
-                                        neighborY,
-                                        currentNode->getDistance(),
-                                        currentNode->getPriority());
-                /** coordinates are ok, this works fine **/
-                ui->textEdit->insertPlainText("\n old priority:"+ QString::number(neighborNode->getPriority()));
-                ui->textEdit->insertPlainText("\n old distance:"+ QString::number(neighborNode->getDistance()));
-                /** this seems to be ok **/
-                neighborNode->updateDistance();
-                neighborNode->updatePriority(xFinish,yFinish);
-                ui->textEdit->insertPlainText("\n new priority:"+ QString::number(neighborNode->getPriority()));
-                ui->textEdit->insertPlainText("\n new distance:"+ QString::number(neighborNode->getDistance()));
-
-                //if neighborNode is not in the openNodes, add it
-                if (openNodes[neighborX][neighborY]==0){
-                    ui->textEdit->insertPlainText("\n adding to openNodes");
-                    //add it
-                    openNodes[neighborX][neighborY] =neighborNode->getPriority();
-                    //add it to the priority cue
-                    stack[index].push(*neighborNode);
-                    //set the parent
-                    dir_map[neighborX][neighborY]=(i+dir/2)%dir; //look at notebook for references
-                    ui->textEdit->insertPlainText("\n added to openNodes");
-                }
-                //if neighborNode is already on the openNodes, check if the path to that one is better
-                else if (openNodes[neighborX][neighborY]>neighborNode->getPriority()){
-                    ui->textEdit->insertPlainText("\n already on openNodes");
-                    //updating fscore inside openNodes
-                    openNodes[neighborX][neighborY] = neighborNode->getPriority();
-                    //update the parent node
-                    dir_map[neighborX][neighborY]=(i+dir/2)%dir;
-                    while (!(min->getxPos()==neighborX && min->getyPos()==neighborY)){
-                        stack[1-index].push(*min);
-                        stack[index].erase(min);
-                    }
-                    stack[index].erase(min); //remove the -old-current node
-
-                    ui->textEdit->insertPlainText("\n stage 1");
-
-                    /** ?? **/
-                    if(stack[index].size()>stack[1-index].size()){ //??? is this extra check necessary?
-                        index=1-index; //index switch 1->0 or 0->1
-                        ui->textEdit->insertPlainText("\n switching index");
-                    }
-
-                    //while(!stack[index].empty()){
-                        stack[1-index].push(*min);
-                        ui->textEdit->insertPlainText("\n stack[1-index].push(*min);");
-                        stack[index].erase(min); // fix this??
-                        ui->textEdit->insertPlainText("\n transfering finished");
-                    //}
-                    /** ?? **/
-                    index=1-index; //index switch 1->0 or 0->1
-                    stack[index].push(*neighborNode); //and the -new-current node will be pushed in instead
-                    ui->textEdit->insertPlainText("\n finished already on openNodes");
-                }
-                else delete neighborNode;
-            }
-//            delete[]eavail; //deletes the array so you can recreate a new one next time
-        }
-            delete currentNode;
-    } ui->textEdit->insertPlainText("\n end of loop\n");
-}return ""; //no path found
-}
-/*
- * Analyzing top, bottom, left and right to the target electrode
- * returns which electrodes are available by determining if they have something
- * written on them or not
- *
- */
-void DMFgui::buildArray(int y, int x){
-    if (y ==0 && x==0){ //top left corner
-        avail =2;
-        eavail = new int[avail];
-        eavail[0]=0;    //right
-        eavail[1]=1;    //bottom
-    }
-    else if(y==0&&x==(newcolumn-1)){ //top right corner
-        avail =2;
-        eavail = new int[avail];
-        eavail[0]=2;    //left
-        eavail[1]=1;    //bottom
-    }
-    else if(y==(newrow-1)&&x==0){ //bottom left corner
-        avail =2;
-        eavail = new int[avail];
-        eavail[0]=0;    //right
-        eavail[1]=3;    //top
-    }
-    else if(y==(newrow-1)&&x==(newcolumn-1)){ //bottom right corner
-        avail =2;
-        eavail = new int[avail];
-        eavail[0]=2;    //left
-        eavail[1]=3;    //top
-    }
-    else if(y==0){ //top row
-        avail =3;
-        eavail = new int[avail];
-        eavail[0]=0;    //right
-        eavail[1]=2;    //left
-        eavail[2]=1;    //bottom
-    }
-    else if(y==(newrow-1)){ //bottom row
-        avail =3;
-        eavail = new int[avail];
-        eavail[0]=2;    //left
-        eavail[1]=3;    //top
-        eavail[2]=0;    //right
-    }
-    else if(x==0){ //left column
-        avail =3;
-        eavail = new int[avail];
-        eavail[0]=3;    //top
-        eavail[1]=1;    //bottom
-        eavail[2]=0;    //right
-    }
-    else if(x==(newcolumn-1)){ //right column
-        avail =3;
-        eavail = new int[avail];
-        eavail[0]=2;    //left
-        eavail[1]=1;    //bottom
-        eavail[2]=3;    //top
-    }
-    else{
-        avail =4;
-        eavail = new int[avail];
-        eavail[0]=2;    //left
-        eavail[1]=1;    //bottom
-        eavail[2]=3;    //top
-        eavail[3]=0;    //right
-    }
-}
-
-/*
-void DMFgui::autoGeneratePath(int rowI,int colI,int rowF, int colF, int path){
-
-/*
-    int currentrow = rowI;//y variable, getting called first
-    int currentcol = colI;//x variable
-
-    //for clearing purposes
-    firstR = rowI;
-    firstC = colI;
-
-    while(currentrow != rowF || currentcol != colF)
-    {
-        bool activated = false;
-        QStringList elecToCheck = findAvailableSpace(currentrow, currentcol).split(",");
-
-        if (elecToCheck.contains("top",Qt::CaseSensitive) && !activated)
-        {
-            if((currentrow-1)>=rowF) //then you're getting closer
-            {
-                currentrow --;
-                activate(currentrow,currentcol);
-                activated = true;
-            }
-        }
-        if(elecToCheck.contains("bottom",Qt::CaseSensitive)&& !activated)
-        {
-            if ((currentrow+1)<=rowF)
-            {
-                currentrow ++;
-                activate(currentrow,currentcol);
-                activated = true;
-            }
-        }
-        if(elecToCheck.contains("right",Qt::CaseSensitive)&& !activated)
-        {
-            if((currentcol+1)<=colF)
-            {
-                currentcol++;
-                activate(currentrow,currentcol);
-                activated = true;
-            }
-        }
-        if(elecToCheck.contains("left",Qt::CaseSensitive)&& !activated)
-        {
-            if((currentcol-1)>=colF)
-            {
-                currentcol--;
-                activate(currentrow,currentcol);
-                activated = true;
-            }
-        }
-        activated = false;
-    }
-    dmf_array[rowI][colI].setStyleSheet("background-color:yellow; border-style: outset ;border-width: 2px; border-color: grey");
-    dmf_array[rowF][colF].setStyleSheet("background-color:blue; border-style: outset ;border-width: 2px; border-color: grey");
-*/
- /*
- *
- *  Kaleem's autogenerate path code.
- *
- *
-     *
-    QStringList tempL = to_Send.split(",");
-
-
-    //Removes the two electrodes (start and end) from the Sending String
-    //Works, but need to understand why certain steps are necessary
-    tempL.removeLast();
-    tempL.removeLast();
-    tempL.removeLast();
-    tempL.append("");
-    to_Send = tempL.join(",");
-
-
-    //creates local variables
-    int trowI = rowI;
-    int tcolI = colI;
-    int trowF = rowF;
-    int tcolF = colF;
-    firstR = rowI;
-    firstC = colI;
-    //Determine number of electrodes to be turned on
-    int size = abs(trowI-trowF)+abs(tcolI-tcolF);
-    size1 =size;
-
-    dmf_array[rowI][colI].setStyleSheet("background-color:yellow; border-style: outset ;border-width: 2px; border-color: grey");     //starting electrode becomes yellow
-   // ui->textEdit->insertPlainText("\ncolI: " +QString::number(colI));
-   // ui->textEdit->insertPlainText("\nrowI: " +QString::number(rowI));
-    //Create an array containing xcoordinates and ycoordinates
-    int *xcoord = new int [size];
-    int *ycoord = new int [size];
-    //Determines number of rows and columns needed to travel
-    int rows = abs(trowI-trowF);
-    int cols = abs(tcolI-tcolF);
-  //Determines which direction the electrode is traveling (northwest,northeast,southwest,southeast
-    bool rowCond = (trowF-trowI)>=0;
-    bool colCond = (tcolF-tcolI)>=0;
-    int a;
-  //Southeast
-  if (rowCond ==1 && colCond ==1){
-       if (path == 1){
-          for(a =0; a<cols; a++){
-              xcoord[a] = ++tcolI;
-              ycoord[a] = trowI;
-          }
-          for(a;a<size;a++){
-              xcoord[a] = tcolF;
-              ycoord[a] = ++trowI;
-          }
-      }
-      else if (path == 2){
-          for(a = 0; a<rows; a++){
-              xcoord[a] = tcolI;
-              ycoord[a] = ++trowI;
-          }
-          for(a;a<size;a++){
-              xcoord[a] = ++tcolI;
-              ycoord[a] = trowF;
-          }
-      }
-  }
-//Southwest
-  else if (rowCond ==1 && colCond ==0){
-      if (path == 1){
-          for(a=0; a<cols; a++){
-              xcoord[a] = --tcolI;
-              ycoord[a] = trowI;
-          }
-          for(a;a<size;a++){
-              xcoord[a] = tcolF;
-              ycoord[a] = ++trowI;
-          }
-      }
-      else if (path == 2){
-          for(a = 0; a<rows; a++){
-              xcoord[a] = tcolI;
-              ycoord[a] = ++trowI;
-          }
-          for(a;a<size;a++){
-              xcoord[a] = --tcolI;
-              ycoord[a] = trowF;
-          }
-      }
-  }
-  //Northwest
-  else if (rowCond ==0 && colCond ==0){
-      if (path == 1){
-          for(a = 0; a<cols; a++){
-              xcoord[a] = --tcolI;
-              ycoord[a] = trowI;
-          }
-          for(a;a<size;a++){
-              xcoord[a] = tcolF;
-              ycoord[a] = --trowI;
-          }
-      }
-      else if (path == 2){
-          for(a = 0; a<rows; a++){
-              xcoord[a] = tcolI;
-              ycoord[a] = --trowI;
-          }
-          for(a;a<size;a++){
-              xcoord[a] = --tcolI;
-              ycoord[a] = trowF;
-          }
-      }
-  }
-  //Northeast
-  else if (rowCond ==0 && colCond ==1){
-      if (path == 1){
-          for(a = 0; a<cols; a++){
-              xcoord[a] = ++tcolI;
-              ycoord[a] = trowI;
-          }
-          for(a;a<size;a++){
-              xcoord[a] = tcolF;
-              ycoord[a] = --trowI;
-          }
-      }
-      else if (path == 2){
-          for(a = 0; a<rows; a++){
-              xcoord[a] = tcolI;
-              ycoord[a] = --trowI;
-          }
-          for(a;a<size;a++){
-              xcoord[a] = ++tcolI;
-              ycoord[a] = trowF;
-          }
-      }
-  }
-  //Create array of electrodes to be turned on and store in a String
-  QString *retMap  = new QString [size];
-  for (int m =0; m<size;m++){
-      retMap[m] = dmf_array[ycoord[m]][xcoord[m]].text();
-      //Set electodes to be activated: green
-      dmf_array[ycoord[m]][xcoord[m]].setStyleSheet("background-color:green; border-style: outset ;border-width: 2px; border-color: grey");
-      save_to_String(retMap[m]);
-  }
-  //Set final electrode to blue
-  dmf_array[rowF][colF].setStyleSheet("background-color:blue; border-style: outset ;border-width: 2px; border-color: grey");
- // ui->textEdit->insertPlainText("\ncolF: " +QString::number(colF));
- // ui->textEdit->insertPlainText("\nrowF: " +QString::number(rowF));
-  //Pointers used to turn colors off
-  rcoord = ycoord;
-  ccoord = xcoord;
-  autoGen = true;
-  ui->textEdit->setPlainText(to_Send);
-
-  //Used to set the text cursor to the end of the text
-  //Error with autogen path, text cursor was set to the beginning, will debug if tjere is time
-  QTextCursor textEditCursor = ui->textEdit->textCursor();
-  int textlength = ui->textEdit->toPlainText().length();
-  textEditCursor.setPosition(textlength,QTextCursor::MoveAnchor);
-  ui->textEdit->setTextCursor(textEditCursor);
-
-
-  // For testing purposes only
-  // ui->textEdit->setFocus();
-   * *
-    *
-    *
-    * end of Kaleem's autogenerate path code
-
-}*/
-
-//finds which electrodes are available next to the current electrode
-QString DMFgui::findAvailableSpace(int y, int x){
-    QString availElec = "";
-
-    //check on top of the current electrode
-    if (dmf_array[y-1][x].text()!="")
-    {
-        availElec += "top,";
-    }
-    //check bottom of current electrode
-    if (dmf_array[y+1][x].text()!="")
-    {
-        availElec += "bottom,";
-    }
-    //check to the left of current electrode
-    if (dmf_array[y][x-1].text()!="")
-    {
-        availElec += "left,";
-    }
-    //check to the right of current electrode
-    if (dmf_array[y][x+1].text()!="")
-    {
-        availElec += "right,";
-    }
-    return availElec;
-}
-/*
- * save_to_String whichever electrode was selected for the autogenerated path
- * sets the electrode green
- */
-void DMFgui::activate(int y, int x,int position){
-    if (position == 0){                                          //start
-        dmf_array[y][x].setStyleSheet("background-color:blue; border-style: outset ;border-width: 2px; border-color: grey");
-    }
-    if(position==1){
-        dmf_array[y][x].setStyleSheet("background-color:green; border-style: outset ;border-width: 2px; border-color: grey");
-    }
-    if(position==2){
-        dmf_array[y][x].setStyleSheet("background-color:red; border-style: outset ;border-width: 2px; border-color: grey");
-    }
-//    save_to_String(dmf_array[y][x].text());
-//    dmf_array[y][x].setStyleSheet("background-color:green; border-style: outset ;border-width: 2px; border-color: grey");
-}
-
-/*
-void DMFgui::activate(int y, int x)
-{
-    save_to_String(dmf_array[y][x].text());
-    dmf_array[y][x].setStyleSheet("background-color:green; border-style: outset ;border-width: 2px; border-color: grey");
-}*/
-
-// ** next step: allowing user to modify autogenerate path **
-void DMFgui::ClearColor(){
-    if(autoGen){
-        dmf_array[firstR][firstC].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
-        for (int q=0;q<size1;q++){
-            for(int r=0;r<size1;r++){
-            dmf_array[rcoord[q]][ccoord[r]].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
-            }
-        }
-    }
-    autoGen = false;
-}
-void DMFgui::on_exitButton_clicked()
-{
-    QByteArray readData = arduino->readAll();
-    ui->textEdit->insertPlainText(readData);
-
-    //QApplication::quit();
-}
-
-void DMFgui::on_sendButton_clicked()
-{
+void DMFgui::on_sendButton_clicked(){
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(this,"Are you sure","Are you sure?",QMessageBox::Yes|QMessageBox::No);
 
-    //send info if user is true
-    if (reply == QMessageBox::Yes)
-    {
+    if (reply == QMessageBox::Yes){                              //send information if user selects "Yes"
         ui->textEdit->insertPlainText("\nSending...");
 
-        updateDMF(to_Send);
+        updateDMF(to_Send);                                      //Sending information to arduino
 
         ui->textEdit->insertPlainText("\nSent!");
-        //ui->textEdit->insertPlainText(to_Send);
-    }
-    //automatically go back if user is not sure
+        ui->textEdit->insertPlainText(to_Send);
+    }                                                            //automatically go back if user is not sure
 }
-
-void DMFgui::on_enterButton_clicked()
-{
-    //get the texts from the textEdits
-    //QString row = ui->rowEdit->text();
-    //QString column = ui->columnEdit->text();
-    QString row;
-    QString column;
-    QList <int> CreateMapInfoRow;
-    QList <int> CreateMapInfoCol;
-
-
-    if (newWindowButtonpressed){
-        row =nLayout->savedRow;
-        column =nLayout->savedCol;
-        int drow = row.toDouble();
-        int dcolumn = column.toDouble();
-        newrow = drow+4;
-        newcolumn = dcolumn+4;
-    }
-    else if(loadWindowButtonpressed)
-    {                   //For testing purposes only
-        QString fileName;
-        fileName = lLayout->savedLayoutfilename;
-        defaultNumbering = lLayout->savedNumbering;
-
-
-        QFile file (fileName);
-        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-            return;
-        QTextStream in(&file);
-        QString line;
-        QStringList mazeInfo;
-        while (!in.atEnd()) {
-             mazeInfo.append(in.readLine());
-        }
-
-
-
-        QStringList tempMap;
-        for(int a=0;a<mazeInfo.length();a++){
-            tempMap = mazeInfo.at(a).split(",");
-            CreateMapInfoRow.append(tempMap.at(0).toInt());
-            CreateMapInfoCol.append(tempMap.at(1).toInt());
-        }
-
-        int maprow = CreateMapInfoRow.at(0);
-        int mapcol = CreateMapInfoCol.at(0);
-        newrow = maprow;
-        newcolumn = mapcol;
-
-        //defaultNumbering = true;
+/*
+ * Communicating information to Arduino
+ */
+void DMFgui::updateDMF(QString to_Send){
+    if (arduino->isWritable()){                                  //if Aruidno is available
+        arduino->write(to_Send.toStdString().c_str());           //communicating with Arduino
     }
     else{
-        QMessageBox::warning(this,tr("No Layout has been selected"), tr("Please select a layout\nEither New Layout or Load Layout"));
+        qDebug() << "Couldn't write to serial";
     }
+}
+/*--------------------------------------------------------------------------------------------------------
+ *
+ * Setting up configuration of DMF device
+ *
+--------------------------------------------------------------------------------------------------------*/
+/*
+ * "main" function for controlling adding of resevoirs
+ */
+void DMFgui::on_enterButton_clicked(){
+    QString row = ui->rowEdit->text();                           //getting information typed by user
+    QString column = ui->columnEdit->text();
+    int drow = row.toDouble();
+    int dcolumn = column.toDouble();
 
-    if(newWindowButtonpressed ||loadWindowButtonpressed ){
-        gridLayout = new QGridLayout;
-        mapper = new QSignalMapper;
-        QLabel display;
+    gridLayout = new QGridLayout;                                //initializing new GridLayout
+    mapper = new QSignalMapper;
+    QLabel display;
 
-        gridLayout->setHorizontalSpacing(0);
-        gridLayout->setVerticalSpacing(0);
-        gridLayout->setSpacing(0);
+    gridLayout->setHorizontalSpacing(0);                         //set up of Layout
+    gridLayout->setVerticalSpacing(0);
+    gridLayout->setSpacing(0);
 
-        int drow = row.toDouble();
-        int dcolumn = column.toDouble();
-
-        if(!enter_Button_Clicked)
-        {
-
-            //value entered is not in int, pop up an error message
-            /*if (row.toInt() == 0||column.toInt()==0)
-            {
-                QMessageBox::warning(this,tr("Not a number"), tr("This is not a number, try again"));
-            }*/
-
-            //else
-            //{
-                //Dynamically create an array
-                //creating new empty buttons (array of array)
-
-
-                //newrow = drow+4;
-                //newcolumn = dcolumn+4;
-
-                dmf_array = new QPushButton*[newrow];
-                for(int i=0;i<newrow;i++){
-                    dmf_array[i]=new QPushButton[newcolumn];
-                }
-
-                QLabel *empty = new QLabel(this);
-                int s=1;
-
-                //naming each of the electrodes
-                for (int i=0;i<newrow;i++)
-                {
-                    //count++;
-                    for (int j=0;j<newcolumn;j++)
-                    {
-                        if(newWindowButtonpressed){
-                            //set the edge spaces as null
-                            if (i==0||i==1||j==0||j==1||i==drow+3||i==drow+2||j==dcolumn+3||j==dcolumn+2)
-                            {
-                                gridLayout->addWidget(empty,i,j);
-                                //dmf_array[i][j].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: yellow");
-                            }
-                            else
-                            {
-                                numberingcount++;
-
-
-
-                                //inserting values into the array
-                               //dmf_array[i][j].setText(ordCP.at(numberingcount-1));//QString::number(numberingcount));
-
-                                //dmf_array[i][j].setText(QString::number(numberingcount));
-                                dmf_array[i][j].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
-                                gridLayout->addWidget(&dmf_array[i][j],i,j);
-                                //mapper->setMapping(&dmf_array[i][j],QString::number(i)+","+QString::number(j)+","+ordCP.at(numberingcount-1));//QString::number(numberingcount));
-                                //mapper->setMapping(&dmf_array[i][j],QString::number(i)+","+QString::number(j)+","+QString::number(numberingcount));
-                                if(defaultNumbering){
-                                    mapper->connect(&dmf_array[i][j],SIGNAL(clicked()),mapper,SLOT(map()));
-                                    dmf_array[i][j].setText(QString::number(numberingcount));
-                                    mapper->setMapping(&dmf_array[i][j],QString::number(i)+","+QString::number(j)+","+QString::number(numberingcount));
-
-                                }
-                                else{
-                                    mapper->connect(&dmf_array[i][j],SIGNAL(clicked()),mapper,SLOT(map()));
-                                    dmf_array[i][j].setText("_");
-                                    mapper->setMapping(&dmf_array[i][j],QString::number(i)+","+QString::number(j)+","+"_");
-
-
-//                                    dmf_array[i][j].setText("_");
-
-                                    //mapper->setMapping(&dmf_array[i][j],QString::number(i)+","+QString::number(j)+","+"_");
-                                }
-                            }
-                        }
-                        else
-                        {
-                            if (s<CreateMapInfoCol.length() && i==CreateMapInfoRow.at(s) && j==CreateMapInfoCol.at(s))
-                            {
-                                dmf_array[i][j].setStyleSheet("border-style: outset ;border-width: 2px; border-color: grey");
-                                gridLayout->addWidget(&dmf_array[i][j],i,j);
-
-                                if(defaultNumbering){
-                                    dmf_array[i][j].setText(QString::number(s));
-                                    mapper->setMapping(&dmf_array[i][j],QString::number(i)+","+QString::number(j)+","+QString::number(s));
-                                    mapper->connect(&dmf_array[i][j],SIGNAL(clicked()),mapper,SLOT(map()));
-
-
-                                }
-                                else{
-                                    dmf_array[i][j].setText("_");
-                                    mapper->setMapping(&dmf_array[i][j],QString::number(i)+","+QString::number(j)+","+"_");
-
-                                }
-                                //The "_" is used for now, but anything can be used as a means to differntiate from empty boxes which have text = ""
-                                //dmf_array[i][j].setText("_");
-                                s++;
-                            }
-                            //If not, create an empty box
-                            else
-                            {
-                                gridLayout->addWidget(empty,i,j);
-                            }
-                        }
-                    }
-                }
-
-                if(defaultNumbering || (newWindowButtonpressed )){
-                    connect(mapper,SIGNAL(mapped(QString)),this,SLOT(buttonClicked(QString)));
-                }
-                gridLayout->addWidget(&display,newrow,0,1,newcolumn);
-
-                ui->graphicsView->setLayout(gridLayout);
-                mapCreated = true;
-
-                /*---------
-                 *Reservoirs
-                 * --------*/
-
-                //display message to user to specify number of reservoirs
-                if(newWindowButtonpressed){
-                    bool ok;
-                    QString text = QInputDialog::getText(this,tr("Next Step"),tr("How many reservoirs do you want?"),QLineEdit::Normal,QDir::home().dirName(),&ok);
-
-                    if (text.toInt() == 0)
-                    {
-                        bool number = false;
-                        while (!number)
-                        {
-                           QMessageBox::warning(this,tr("Not a number"), tr("This is not a number, try again"));
-                           text = QInputDialog::getText(this,tr("Next Step"),tr("How many reservoirs do you want?"),QLineEdit::Normal,QDir::home().dirName(),&ok);
-                           if (text.toInt() == 0)
-                           {
-                              number = false;
-                           }
-                           else
-                           {
-                               number = true;
-                           }
-                        }
-                    }
-
-                    if(ok&&!text.isEmpty())
-                    {
-                        //number of reservoirs
-                        resnum = text.toInt();
-                        ui->textEdit->insertPlainText("please select " + text + " reservoirs");
-
-                        addRes = true;
-                    }
-                   }
-
-
-                /*---------
-                 * Load CSV file and fill buttons
-                 * -------*/
-
-                if(!defaultNumbering)
-                {
-                    //if(!csvFileRead){
-                        QString fileName;
-                        if(newWindowButtonpressed){
-                            fileName = nLayout->savedNumberingfilename;
-                        }
-                        else if(loadWindowButtonpressed){
-                             fileName = lLayout->savedContactPadfilename;
-                        }
-                        else{
-                            fileName = "C:/Users/kaleem/Summer_2016/Steve Shih Project/ContactPadFiles/dmfdesign1.txt";
-                        }
-                        QFile file (fileName);
-                        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-                            return;
-                        QTextStream in(&file);
-                        QString line;
-                        QStringList a;
-                        int count =0;
-
-                        //READ TXT FILE CONTAINING ELECTRODE + CONTACT PAD INFORMATION
-                        //FILTERS OUT LINES THAT DON'T CONTAIN NECESSARY INFO
-                        //STORE LINES THAT CONTAIN T1 ==> THIS REPRESENTS RESDES,
-
-                        while (!in.atEnd()) {
-                             line = in.readLine();
-                             if(line.contains("T1.", Qt::CaseInsensitive)){
-                                 a.append(line);
-                                 count++;
-                             }
-                        }
-
-                        //SORTING ENSURES THAT ALL OF THE ELECTRODES ARE TO THE LEFT, THIS IS TO ENSURE THAT ASCENDING SORTING CAN BE DONE
-                        //ADDs "0"s if needed, this is to ensure that sorting is done properly
-                        //CALCULATES THE NUMBER of "0"s to add
-                         //CRUDE METHOD FOR NOW: ADD "0" depending on how many need to be added)
-
-                        QStringList b;
-
-                        for(int i=0;i<count;i++){
-                            b = a.at(i).split(" ");
-                            sort(b.begin(),b.end());
-                            if(b.at(5).length()<6){
-                                int a = 6-b.at(5).length();
-                                QStringList c = b.at(5).split(".");
-                                QString d;
-                                if(a==1){
-                                    d="0";
-                                }
-                                else if(a==2){
-                                    d="00";
-                                }
-                                else if(a==3){
-                                    d="000";
-                                }
-                                b.replace(5,(c.at(0)+"."+d+c.at(1)));               //CONCATENATES ADDED "0"s
-                            }
-                            a.replace(i,(b.at(5)+" "+b.at(6)));                     //CONCATENATES CONTACT PADS AND ELECTRODES BACK TOGETHER
-                        }
-                        sort(a.begin(),a.end());                                    //SORTS INTO ASCENDING ORDER LIST OF ELECTRODES WITH THEIR RESPECTIVE CONTACT PADS
-                        QStringList tempCP;
-                        QRegExp rx("(\\ |\\.)");                                    //RegEx for ' ' or ','
-                        for(int k = 0;k<count;k++){
-                            tempCP = a.at(k).split(rx);
-                            ordCP.append(tempCP.at(3));
-                        }
-                        for(int w=0;w<ordCP.length();w++){
-                            ui->textEdit->insertPlainText(ordCP.at(w)+"\n");        //ONLY DISPLAYS RESPECTIVE CONTACT PADS
-                        }
-                        ui->textEdit->insertPlainText("LENGTH: "+ QString::number(ordCP.length()));
-                        csvFileRead=true;
-
-
-                        /*-----
-                         * Fill Text
-                         * ----*/
-
-                        // && ordCP.length()==numberofButtons){
-                        if(!newWindowButtonpressed){
-                            int z=0;
-                            for (int i=0;i<newrow;i++)
-                            {
-                                for (int j=0;j<newcolumn;j++)
-                                    {
-                                    if(z<ordCP.length() && dmf_array[i][j].text()!=""){
-                                        dmf_array[i][j].setText(ordCP.at(z));
-                                        mapper->connect(&dmf_array[i][j],SIGNAL(clicked()),mapper,SLOT(map()));
-                                        mapper->setMapping(&dmf_array[i][j],QString::number(i)+","+QString::number(j)+","+ordCP.at(z));     // numberingcount-1));//QString::number(numberingcount));
-                                        z++;
-                                    }
-                                    else if (z>=ordCP.length()&& dmf_array[i][j].text()!=""){
-                                        //ui->textEdit->setPlainText("There are more buttons than there are contact pads");
-                                        z++;
-                                    }
-                                }
-                            }
-
-                            connect(mapper,SIGNAL(mapped(QString)),this,SLOT(buttonClicked(QString)));
-                            ui->textEdit->setPlainText("");
-                            ui->textEdit->insertPlainText("Number of Contact Pads: " + QString::number(ordCP.length()) + ", Number of Buttons: " + QString::number(z)+"\n");
-                            if(z>=ordCP.length()){
-                                ui->textEdit->insertPlainText("There are more contact pads than there are buttons");
-                           }
-                        }
-                    }
-
-
-                    //else
-                    //{
-                    //    QMessageBox::warning(this,tr("csvFile"), tr("This file has already been read"));
-                    //}
-
-
-
-                }
-
-                enter_Button_Clicked = true;
-                mapCreated = true; // may be a repition of enter_button_clicked, need to check with Meko
+    if(!enter_Button_Clicked){                                   //goes into loop if it's the first time clicking on the enter button
+        if (row.toInt() == 0||column.toInt()==0){                //value entered is not in int, pop up an error message
+            QMessageBox::warning(this,tr("Not a number"), tr("This is not a number, try again"));
         }
-        else
-        {
-            if (enter_Button_Clicked)
-            {
-                QMessageBox::warning(this,tr("Invalid"), tr("You can't click on this button again"));
+        else{
+            newrow = drow+4;                                     //adding extra space on the border for reservoirs
+            newcolumn = dcolumn+4;
+            horizontalSize = newcolumn;
+            verticalSize = newrow;
+
+            dmf_array = new QPushButton*[newrow];                //dynamically creating array for button storage
+            for(int i=0;i<newrow;i++){
+                dmf_array[i]=new QPushButton[newcolumn];
             }
+
+            for (int i=0;i<newrow;i++){                          //naming and setting properties for each button
+                for (int j=0;j<newcolumn;j++){
+                    if (i==0||i==1||j==0||j==1||i==drow+3||i==drow+2||j==dcolumn+3||j==dcolumn+2){
+                        dmf_array[i][j].setText("");
+                        dmf_array[i][j].setStyleSheet("background-color:white;border:none");
+                        gridLayout->addWidget(&dmf_array[i][j],i,j);
+                    }
+                    else{                                        //adding a new button
+                        numberingcount++;
+                        dmf_array[i][j].setText(QString::number(numberingcount));
+                        dmf_array[i][j].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+                        gridLayout->addWidget(&dmf_array[i][j],i,j); //adding button to the Layout
+
+                        mapper->connect(&dmf_array[i][j],SIGNAL(clicked()),mapper,SLOT(map()));
+                        mapper->setMapping(&dmf_array[i][j],QString::number(i)+","+QString::number(j)+","+QString::number(numberingcount));
+                     }
+                    }
+                }
+                                                                 //connecting buttons to signal mapping
+            connect(mapper,SIGNAL(mapped(QString)),this,SLOT(buttonClicked(QString)));
+            gridLayout->addWidget(&display,newrow,0,1,newcolumn);
+
+            ui->graphicsView->setLayout(gridLayout);             //display the DMF device
+
+            bool ok;                                             //variable used for QInputDialog
+                                                                 //adding reservoirs
+
+            QString text = QInputDialog::getText(this,tr("Next Step"),tr("How many reservoirs do you want?"),QLineEdit::Normal,QDir::home().dirName(),&ok);
+            if (text.toInt() == 0){                              //if value entered is not a number (text.toInt() will return 0)
+                bool number = false;
+                while (!number){                                 //while the user doesn't eneter a number, keep asking
+                   QMessageBox::warning(this,tr("Not a number"), tr("This is not a number, try again"));
+                   text = QInputDialog::getText(this,tr("Next Step"),tr("How many reservoirs do you want?"),QLineEdit::Normal,QDir::home().dirName(),&ok);
+                   if (text.toInt() == 0){
+                      number = false;
+                   }
+                   else{
+                       number = true;
+                   }
+                }
+            }
+            if(ok&&!text.isEmpty()){
+                resnum = text.toInt();                           //setting number of reservoirs to be added
+                ui->textEdit->insertPlainText("please select " + text + " reservoirs");
+                addRes = true;                                   //need to add the reservoirs
+            }
+            enter_Button_Clicked = true;                         //prevents user from clicking enter twice
+            mapCreated = true;                                  //Map has been created, may be unnecessary (same function as enter_button_clicked)
         }
     }
-
-
-
-
-/*--------------------------
- * Allows user to turn on electrodes instantly after pressing the button
- * It only allows for sequencing
- * --------------------------*/
-void DMFgui::on_realTimeBox_clicked(bool checked)
-{
-    if (checked){
-        realTime = true;
-    }
-    else
-        realTime = false;
-}
-
-/*---------
- * If delete button is pressed, you can  buttons
- * It will be used to create layouts that can also be saved later
- * ------*/
-
-void DMFgui::on_DeleteBox_clicked(bool checked)
-{
-    if (checked){
-        QMessageBox::warning(this,tr("Caution"), tr("Once a button is deleted, it cannot be undone"));
-        deleteButtonchoice=true;
-    }
-    else {
-        deleteButtonchoice = false;
+    else{
+        if (enter_Button_Clicked){                               //if the user pressed the enter button again, give warning
+            QMessageBox::warning(this,tr("Invalid"), tr("You can't click on this button again"));
+        }
     }
 }
-
-
-//When an electrode is clicked
-void DMFgui::buttonClicked(QString text)
-{
-    QStringList electrodeList;
+/*
+ * Function determining what happens when a button is clicked
+ * Action taken when button is clicked depends on the state of the system
+ */
+void DMFgui::buttonClicked(QString text){
+    ClearColor();                                                //when a button is clicked, reset the color of all buttons
+    QStringList electrodeList;                                   //y_coordinate,x_coordinate,electrode_number <- electrodeList
     electrodeList = text.split(",");
-    if(!deleteButtonchoice){
-        ClearColor();
-        //QStringList electrodeList;
-        //electrodeList = text.split(",");
-        if (elec ==1)
-        {
-            electrode_1.x = electrodeList.value(1).toInt();
-            electrode_1.y = electrodeList.value(0).toInt();
-
-    //        ui->textEdit->insertPlainText("\n electrode_1");
-    //        ui->textEdit->insertPlainText("\n electrode: " +electrodeList.value(2));
-    //        ui->textEdit->insertPlainText("\n x coordinate: " +QString::number(electrode_1.x));
-    //        ui->textEdit->insertPlainText("\n y coordinate: " +QString::number(electrode_1.y));
-
-            elec ++; //go to electrode_2 next time a button is pressed
+    if (elec ==1){                                               //saving values into the first electrode (struct)
+        electrode_1.x = electrodeList.value(1).toInt();
+        electrode_1.y = electrodeList.value(0).toInt();
+        elec ++;                                                 //go to electrode_2 next time a button is pressed
+    }
+    else if(elec==2){
+        electrode_2.x = electrodeList.value(1).toInt();
+        electrode_2.y = electrodeList.value(0).toInt();
+        elec --;                                                 //go to electrode_1 next time a button is pressed
+    }
+    if (addRes){                                                 //if the signal for adding a reservoir was called, add a reservoir
+        if (added<resnum){
+           if (add_reservoir(newcolumn,newrow,resnum)){
+               added++;
+           }
         }
-        else if(elec==2)
-        {
-            electrode_2.x = electrodeList.value(1).toInt();
-            electrode_2.y = electrodeList.value(0).toInt();
-
-    //        ui->textEdit->insertPlainText("\n electrode_2");
-    //        ui->textEdit->insertPlainText("\n electrode: " + electrodeList.value(2));
-    //        ui->textEdit->insertPlainText("\n x coordinate: " +QString::number(electrode_2.x));
-    //        ui->textEdit->insertPlainText("\n y coordinate: " +QString::number(electrode_2.y));
-
-            elec --; //go to electrode_1 next time a button is pressed
-        }
-
-        //if addReservoir was called
-        if (addRes)
-        {
-            if (added<resnum)
-            {
-               if (add_reservoir(newcolumn,newrow,resnum))
-               {
-                   added++;
-               }
-            }
-            else
-            {
-                /*-----------
-                 *Fill out buttons after creating reservoirs
-                 * May need to look for a better solution
-                 * If you have a preloaded contact pads information
-                 * ----------*/
-
-                if(!defaultNumbering){
-                    disconnect(mapper,SIGNAL(mapped(QString)),this,SLOT(buttonClicked(QString)));
-
-                    ui->textEdit->setPlainText("x: "+electrodeList.value(1) +  ",y: " +electrodeList.value(0));
-                    int z=0;
-                    for (int i=0;i<newrow;i++)
-                    {
-                        for (int j=0;j<newcolumn;j++)
-                            {
-                            if(z<ordCP.length() && dmf_array[i][j].text()!=""){
-                                dmf_array[i][j].setText(ordCP.at(z));
-                                mapper->disconnect(&dmf_array[i][j],SIGNAL(clicked()),mapper,SLOT(map()));                          //Disconnect previous connection before establishing new connection
-                                mapper->connect(&dmf_array[i][j],SIGNAL(clicked()),mapper,SLOT(map()));
-                                mapper->setMapping(&dmf_array[i][j],QString::number(i)+","+QString::number(j)+","+ordCP.at(z));     // numberingcount-1));//QString::number(numberingcount));
-                                z++;
-                            }
-                            else if (z>=ordCP.length()&& dmf_array[i][j].text()!=""){
-                                //ui->textEdit->setPlainText("There are more buttons than there are contact pads");
-                                z++;
-                            }
-                        }
-                    }
-
-
-                    connect(mapper,SIGNAL(mapped(QString)),this,SLOT(buttonClicked(QString)));
-                    ui->textEdit->setPlainText("");
-                    ui->textEdit->insertPlainText("Number of Contact Pads: " + QString::number(ordCP.length()) + ", Number of Buttons: " + QString::number(z)+"\n");
-                    if(z>=ordCP.length()){
-                        ui->textEdit->insertPlainText("There are more contact pads than there are buttons");
-                   }
-                }
-
-                addRes = false;
-                QMessageBox::warning(this,tr("Next Step"), tr("You can start generating paths"));
-
-            }
-        }
-
-        else
-        {
-            if(realTime){
-                if (arduino->isWritable()){
-                    QString a = "1000," + electrodeList.value(2);
-                    const char * dat = a.toStdString().c_str(); //= ("1000," + electrodeList.value(2)).toStdString().c_str();
-
-                    arduino->write(dat);
-
-                }
-            }
-            else{
-            //ui->textEdit->insertPlainText("\n called");
-            ui->textEdit->insertPlainText("row: "+electrodeList.value(0)+", col:" + electrodeList.value(1) + ", elec: " +electrodeList.value(2));
-
-            //    save_to_String(electrodeList.value(2));
-            }
-
+        else{
+            addRes = false;                                      //signal for adding reservoirs finished
+            QMessageBox::warning(this,tr("Next Step"), tr("You can start generating paths"));
         }
     }
-    else{
+    else{                                                        //if not adding a reservoir, save to string to send to Arduino
 
-      //Deletes Buttons
-        ui->textEdit->setPlainText("");
-        int* retIndex = returnIndex(dmf_array,newrow,newcolumn,electrodeList.value(2).toInt());
-        int row1 = retIndex[0];
-        int col1 = retIndex[1];
+        if(realTime){
+            if (arduino->isWritable()){
+                QString a = "1000," + electrodeList.value(2);
+                const char * dat = a.toStdString().c_str(); //= ("1000," + electrodeList.value(2)).toStdString().c_str();
 
-        ui->textEdit->setPlainText("row: " + QString::number(row1) + ", col: " + QString::number(col1));
-        dmf_array[row1][col1].setText("");//QString::number(numberingcount));
-        dmf_array[row1][col1].setStyleSheet("background-color: white;border-color:none;border-style: outset ;");
-        dmf_array[row1][col1].setEnabled(false);
+                arduino->write(dat);
 
-
-
+            }
+        }
+        else{
+        //ui->textEdit->insertPlainText("\n called");
+            save_to_String(electrodeList.value(2));
+        }
     }
 }
-
 /*
- * Adding a reservoir and setting it on the map
- * So that it becomes clickable
- * TODO: DISABLE RESERVOIR BEING CLICKED WHEN ADDING RESERVOIRS!!!
+ * Function for adding a reservoir
  */
-void DMFgui::map_reservoir(int x, int y){
-    numberingcount++;
-    reservoircount++;
-    dmf_array[y][x].setText("res no:" + QString::number(reservoircount));
-    gridLayout->addWidget(&dmf_array[y][x],y,x);
-    dmf_array[y][x].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
-    mapper->connect(&dmf_array[y][x],SIGNAL(clicked()),mapper,SLOT(map()));
-    mapper->setMapping(&dmf_array[y][x],QString::number(y)+","+QString::number(x)+","+QString::number(numberingcount));
-}
-
-/*
- * Does the opposite of findAvailableSpace
- */
-QString DMFgui::findEmptySpace(int x, int y){
-    int emptySpaces = 0;                                         //keeps track of how many empty spaces there are
-    QString emptyElec = "";
-    if (dmf_array[y-1][x].text()==""){                           //check on top of the current electrode
-        emptyElec += "top,";
-        emptySpaces ++;
-    }
-    if (dmf_array[y+1][x].text()==""){                           //check bottom of current electrode
-        emptyElec += "bottom,";
-        emptySpaces++;
-    }
-    if (dmf_array[y][x-1].text()==""){                           //check to the left of current electrode
-        emptyElec += "left,";
-        emptySpaces++;
-    }
-    if (dmf_array[y][x+1].text()==""){                           //check to the right of current electrode
-        emptyElec += "right,";
-        emptySpaces++;
-    }
-    emptyElec += QString::number(emptySpaces);
-    ui->textEdit->insertPlainText("\nempty Electrodes: " + emptyElec);
-    ui->textEdit->insertPlainText("\nnumber of empty spaces: " + QString::number(emptySpaces));
-    return emptyElec;
-}
-
-
-
 bool DMFgui::add_reservoir(int column, int row, int resnum)
 {
     int * coords = getRecent_Coordinates();                      //getting most recent coordinates and saving them in a new array
@@ -1459,31 +476,18 @@ bool DMFgui::add_reservoir(int column, int row, int resnum)
             break;
     }
 }
-
-
-
-void DMFgui::setMapping(int x, int y)
-{
-    dmf_array[y][x].setText(QString::number(numberingcount));
-    dmf_array[y][x].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
-    gridLayout->addWidget(&dmf_array[y][x],y,x);
-    mapper->connect(&dmf_array[y][x],SIGNAL(clicked()),mapper,SLOT(map()));
-    mapper->setMapping(&dmf_array[y][x],QString::number(y)+","+QString::number(x)+","+QString::number(numberingcount));
-}
-
-
-
+/*
+ * Getting most recent coordinate (either electrode_1 or electrode_2)
+ */
 int * DMFgui::getRecent_Coordinates(){
     int recentCoord[4];
-    if (elec==1)
-    {
+    if (elec==1){
         recentCoord[0] = electrode_1.y;
         recentCoord[2] = electrode_2.y;
         recentCoord[1] = electrode_1.x;
         recentCoord[3] = electrode_2.x;
     }
-    else if (elec==2)
-    {
+    else if (elec==2){
         recentCoord[0] = electrode_2.y;
         recentCoord[2] = electrode_1.y;
         recentCoord[1] = electrode_2.x;
@@ -1491,108 +495,682 @@ int * DMFgui::getRecent_Coordinates(){
     }
     return recentCoord;
 }
+/*
+ * Setting mapping for all the buttons created
+ */
+void DMFgui::setMapping(int x, int y){
+    dmf_array[y][x].setText(QString::number(numberingcount));
+    dmf_array[y][x].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+    gridLayout->addWidget(&dmf_array[y][x],y,x);
+    mapper->connect(&dmf_array[y][x],SIGNAL(clicked()),mapper,SLOT(map()));
+    mapper->setMapping(&dmf_array[y][x],QString::number(y)+","+QString::number(x)+","+QString::number(numberingcount));
+}
 
+/*
+ * Adding a reservoir and setting it on the map
+ * So that it becomes clickable
+ * TODO: DISABLE RESERVOIR BEING CLICKED WHEN ADDING RESERVOIRS!!!
+ */
+void DMFgui::map_reservoir(int x, int y){
+    numberingcount++;
+    reservoircount++;
+//    dmf_array[y][x].setText("res no:" + QString::number(reservoircount));
+    dmf_array[y][x].setText(QString::number(numberingcount));
+    gridLayout->addWidget(&dmf_array[y][x],y,x);
+    dmf_array[y][x].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+    mapper->connect(&dmf_array[y][x],SIGNAL(clicked()),mapper,SLOT(map()));
+    mapper->setMapping(&dmf_array[y][x],QString::number(y)+","+QString::number(x)+","+QString::number(numberingcount));
+}
 
-void DMFgui::updateDMF(QString to_Send)
-{
+/*--------------------------------------------------------------------------------------------------------
+ *
+ * Path Generation related Functions
+ * so far: uses arrays
+ * # PRIORITY: consider using LinkedList for autopath generation
+ *
+--------------------------------------------------------------------------------------------------------*/
+/*
+ * saves most recent coordinates to the autogen path (saves beginning and end)
+ */
+void DMFgui::on_autogen_Button_clicked(){
+    int *z = getRecent_Coordinates();
 
+    int a1 = z[0];                                               //Initial row
+    int a2 = z[1];                                               //Initial column
+    int a3 = z[2];                                               //Final row
+    int a4 = z[3];                                               //Final column
 
-    //Split the String into smaller string stored in QString array
-    QStringList sep = to_Send.split(",");
-    int numVals = 5;
-    double nVal = 5;
-    int actLength = sep.length()-1;
-    double a = ceil(actLength/nVal);
-    int rem = actLength%numVals;
-    ui->textEdit->insertPlainText("rem: " + QString::number(rem)+"\n");
-    ui->textEdit->insertPlainText("length: " + QString::number(actLength)+"\n");
-    ui->textEdit->insertPlainText("ceil: " + QString::number(a)+"\n");
-    int b = a;
-
-    ui->textEdit->insertPlainText("convceil: " + QString::number(b)+"\n");
-    QString sep20 [b];
-    int q;
-    if(rem==0){
-        q=b;
+     QString route = autoGeneratePath(a2,a1,a4,a3);
+}
+/*
+ * saves most recent coordinates to the autogen path (saves beginning and end)
+ */
+QString DMFgui::autoGeneratePath(const int & xStart,const int & yStart,const int & xFinish,const int & yFinish){
+    //node sets
+    int **closedNodes = new int*[horizontalSize];
+    int **openNodes = new int*[horizontalSize];
+    int **dir_map = new int*[horizontalSize];
+    for (int i=0;i<verticalSize;i++){
+        closedNodes[i] = new int[verticalSize];                 //set of nodes that are already evaluated and marked off
+        openNodes[i] = new int[verticalSize];                   //set of nodes to be evaluated
+        dir_map[i] = new int[verticalSize];                     //map of directions(parent-child connection) keeps track of the different paths
     }
-    else
-        q=b-1;
-    for(int i=0;i<q;i++){             //Create strings up until the very last one which may contain less than numVals electrodes
-        for(int j=(i*numVals);j<(i*numVals)+(numVals-1);j++){
-            sep20[i]=sep20[i].append(sep.at(j)+",");
+    //directions
+    const int dir = 4;
+    static int dirX[dir]={1,0,-1,0}; //x direction
+    static int dirY[dir]={0,1,0,-1}; //y direction
+
+    static int index;      //initialized to 0?                                       //static and global variables are initialized to 0
+    QStack<node> stack[2];
+    static node *currentNode;
+    static node *neighborNode;
+
+//reset map
+    for (int y=0;y<horizontalSize;y++){
+        for (int x=0;x<verticalSize;x++){
+            closedNodes[x][y]=0;
+            openNodes[x][y]=0;
         }
-        sep20[i]=sep20[i].append(sep.at((i*numVals)+(numVals-1)));
     }
-    if(rem!=0){
-    for(int k=((b-1)*numVals);k<((b-1)*numVals)+(rem-1);k++){
-        sep20[b-1]=sep20[b-1].append(sep.at(k)+",");
-    }
-    sep20[b-1]=sep20[b-1].append(sep.at((b-1)*(numVals)+(rem-1)));
-    }//ui->textEdit->setPlainText("");
-    for (int k=0;k<b;k++){
-        ui->textEdit->insertPlainText(sep20[k] + "\n");
-    }
-    if (arduino->isWritable())
-    {
 
+    //create the start node
+    static node *startNode;
+    startNode = new node(xStart,
+                         yStart,
+                         0,
+                         0);
+    startNode->updatePriority(xFinish,yFinish);
 
-        /*if (readData==v){
-            arduino->write(sep20[0].toStdString().c_str());
-        }
-        else
-            ui->textEdit->insertHtml("\n Didn't work");
-        */
-        QByteArray readData = arduino->readAll();
-        QByteArray v = "2";
-        QString s_data = readData;
-        ui->textEdit->insertPlainText("data: " + s_data);
+    //push the start node to the priority queue
+    stack[index].push(*startNode);
 
-        //arduino->write(sep20[0].toStdString().c_str());
+    //add to the list of open nodes in order to evaluate the start node
+    openNodes[startNode->getxPos()][startNode->getyPos()] = startNode->getPriority();
 
-        for(int i = 0; i<b;i++){
-            arduino->write(sep20[i].toStdString().c_str());
-            while(readData!=v){
-                readData = arduino->readAll();
-                s_data = readData;
-                ui->textEdit->insertPlainText(s_data);
-                qApp->processEvents();
+    ui->textEdit->insertPlainText("\n before loop\n");
+
+//    //while priority queue is not empty, continue
+    while(!stack[index].empty()){
+
+        ui->textEdit->insertPlainText("\n start of loop\n");
+        auto min = std::min_element( stack[index].begin(), stack[index].end(),
+                                     []( const node &a, const node &b )
+                                     {
+                                         return a.getPriority() < b.getPriority();
+                                     } );
+
+        //get the current node with the highest priority in the priority list (this will be the smallest value, according to the way we set this up)
+        currentNode = new node(min->getxPos(),
+                               min->getyPos(),
+                               min->getDistance(),
+                               min->getPriority());
+        //remove the current node from the priority queue
+        stack[index].erase(min);
+        //add the currentNode into the openNodes (this is actually building a parallel map that stores what to evaluate)
+        openNodes[currentNode->getxPos()][currentNode->getyPos()]=0;
+        //add the currentNode into the closedNodes
+        closedNodes[currentNode->getxPos()][currentNode->getyPos()]=1;
+
+        ui->textEdit->insertPlainText("\n\n XPos:"+ QString::number(currentNode->getxPos()));
+        ui->textEdit->insertPlainText("YPos:"+ QString::number(currentNode->getyPos()) + "\n");
+
+        //check if target has been reached
+        if (currentNode->getxPos()==xFinish && currentNode->getyPos()==yFinish){
+            ui->textEdit->insertPlainText("target has been reached");                            //activates the destination node
+            //return the generated path in a QString
+            QString path = "";
+            int x = currentNode->getxPos();
+            int y = currentNode->getyPos();
+            activate(y,x,2); //the final position
+            //back track the whole procress to build a QString
+            while (!(x==xStart && y ==yStart))
+            {
+            ui->textEdit->insertPlainText("\nxStart: "+ QString::number(xStart));
+            ui->textEdit->insertPlainText("\nyStart: "+ QString::number(yStart));
+            ui->textEdit->insertPlainText("\nxBefore: "+ QString::number(x));
+            ui->textEdit->insertPlainText("\nyBefore: "+ QString::number(y));
+                int direction = dir_map[x][y];
+//                path = (direction + dir/2)%dir + path; //CHECK THIS OUT
+                path = dmf_array[y][x].text()+","+path;
+                ui->textEdit->insertPlainText("\ndirection: " + QString::number(direction));
+                x += dirX[direction]; //direction is pointing towards the previous node
+                y += dirY[direction];
+                ui->textEdit->insertPlainText("\n\nxAfter: "+ QString::number(x));
+                ui->textEdit->insertPlainText("\nyAfter: "+ QString::number(y));
+                activate(y,x,1);
             }
-            readData = arduino->readAll();
-             ui->textEdit->insertPlainText("\ni: " + QString::number(i));
-            //Delay may be needed
+            //for the start node
+            activate(y,x,0);
+            path = dmf_array[y][x].text()+","+path;
+            //delete the node
+            delete currentNode;
+            //emptying the 'new' node
+            while (!stack[index].empty()){
+                stack[index].pop();
+            }
+            ui->textEdit->insertPlainText("\n\n path: "+ path);
+            return path;
+        break;
         }
+        //if target hasn't been reached, add all the neighboring nodes to the OpenList + define parents for later tracing
+        else{
+            buildArray(currentNode->getyPos(),currentNode->getxPos());
+            for (int j=0;j<avail;j++){
+                int i = eavail[j];
+                /** coordinates are correct **/
+                int neighborX = currentNode->getxPos()+dirX[i];
+                int neighborY = currentNode->getyPos()+dirY[i];
 
+                ui->textEdit->insertPlainText("\n neighborX:"+ QString::number(neighborX));
+                ui->textEdit->insertPlainText("\n neighborY:"+ QString::number(neighborY));
+                //means that it's unavailable
 
+            if (dmf_array[neighborY][neighborX].text()==""){
+                closedNodes[neighborX][neighborY]=1;
+                ui->textEdit->insertPlainText(" in closedNodes");
+            }
 
-        /*arduino->write(to_Send.toStdString().c_str());
-        qApp->processEvents();
+            //TODO: use the code writen for check if avaiable or something
+            //ignore if it's on the closed list or if it has been marked as unavailable
 
+            else if (!(neighborX<0||neighborY<0||neighborX>horizontalSize||neighborY>verticalSize||closedNodes[neighborX][neighborY]==1)){
+                //if it gets here, then generate a neighbor Node
+                neighborNode = new node(neighborX,
+                                        neighborY,
+                                        currentNode->getDistance(),
+                                        currentNode->getPriority());
+                /** coordinates are ok, this works fine **/
+                ui->textEdit->insertPlainText("\n old priority:"+ QString::number(neighborNode->getPriority()));
+                ui->textEdit->insertPlainText("\n old distance:"+ QString::number(neighborNode->getDistance()));
+                /** this seems to be ok **/
+                neighborNode->updateDistance();
+                neighborNode->updatePriority(xFinish,yFinish);
+                ui->textEdit->insertPlainText("\n new priority:"+ QString::number(neighborNode->getPriority()));
+                ui->textEdit->insertPlainText("\n new distance:"+ QString::number(neighborNode->getDistance()));
 
-       QByteArray readData = arduino->readAll();
+                //if neighborNode is not in the openNodes, add it
+                if (openNodes[neighborX][neighborY]==0){
+                    ui->textEdit->insertPlainText("\n adding to openNodes");
+                    //add it
+                    openNodes[neighborX][neighborY] =neighborNode->getPriority();
+                    //add it to the priority cue
+                    stack[index].push(*neighborNode);
+                    //set the parent
+                    dir_map[neighborX][neighborY]=(i+dir/2)%dir; //look at notebook for references
+                    ui->textEdit->insertPlainText("\n added to openNodes");
+                }
+                //if neighborNode is already on the openNodes, check if the path to that one is better
+                else if (openNodes[neighborX][neighborY]>neighborNode->getPriority()){
+                    ui->textEdit->insertPlainText("\n already on openNodes");
+                    //updating fscore inside openNodes
+                    openNodes[neighborX][neighborY] = neighborNode->getPriority();
+                    //update the parent node
+                    dir_map[neighborX][neighborY]=(i+dir/2)%dir;
+                    while (!(min->getxPos()==neighborX && min->getyPos()==neighborY)){
+                        stack[1-index].push(*min);
+                        stack[index].erase(min);
+                    }
+                    stack[index].erase(min); //remove the -old-current node
 
-       QString s_data = readData;
-       ui->textEdit->insertPlainText(s_data);
+                    ui->textEdit->insertPlainText("\n stage 1");
 
-       //Exits loop once it's reached the end point
-       //At this point you can send more data
-       while(s_data!="reached this point"){
-           readData = arduino->readAll();
-           s_data = readData;
-           ui->textEdit->insertPlainText(s_data);
-           qApp->processEvents();
-       }*/
+                    /** ?? **/
+                    if(stack[index].size()>stack[1-index].size()){ //??? is this extra check necessary?
+                        index=1-index; //index switch 1->0 or 0->1
+                        ui->textEdit->insertPlainText("\n switching index");
+                    }
 
+                    //while(!stack[index].empty()){
+                        stack[1-index].push(*min);
+                        ui->textEdit->insertPlainText("\n stack[1-index].push(*min);");
+                        stack[index].erase(min); // fix this??
+                        ui->textEdit->insertPlainText("\n transfering finished");
+                    //}
+                    /** ?? **/
+                    index=1-index; //index switch 1->0 or 0->1
+                    stack[index].push(*neighborNode); //and the -new-current node will be pushed in instead
+                    ui->textEdit->insertPlainText("\n finished already on openNodes");
+                }
+                else delete neighborNode;
+            }
+//            delete[]eavail; //deletes the array so you can recreate a new one next time
+        }
+            delete currentNode;
+    } autoGen = true;
+}return ""; //no path found
+}
+/*
+ * Analyzing top, bottom, left and right to the target electrode
+ * returns which electrodes are available by determining if they have something
+ * written on them or not
+ *
+ */
+void DMFgui::buildArray(int y, int x){
+    if (y ==0 && x==0){ //top left corner
+        avail =2;
+        eavail = new int[avail];
+        eavail[0]=0;    //right
+        eavail[1]=1;    //bottom
     }
-    else
+    else if(y==0&&x==(newcolumn-1)){ //top right corner
+        avail =2;
+        eavail = new int[avail];
+        eavail[0]=2;    //left
+        eavail[1]=1;    //bottom
+    }
+    else if(y==(newrow-1)&&x==0){ //bottom left corner
+        avail =2;
+        eavail = new int[avail];
+        eavail[0]=0;    //right
+        eavail[1]=3;    //top
+    }
+    else if(y==(newrow-1)&&x==(newcolumn-1)){ //bottom right corner
+        avail =2;
+        eavail = new int[avail];
+        eavail[0]=2;    //left
+        eavail[1]=3;    //top
+    }
+    else if(y==0){ //top row
+        avail =3;
+        eavail = new int[avail];
+        eavail[0]=0;    //right
+        eavail[1]=2;    //left
+        eavail[2]=1;    //bottom
+    }
+    else if(y==(newrow-1)){ //bottom row
+        avail =3;
+        eavail = new int[avail];
+        eavail[0]=2;    //left
+        eavail[1]=3;    //top
+        eavail[2]=0;    //right
+    }
+    else if(x==0){ //left column
+        avail =3;
+        eavail = new int[avail];
+        eavail[0]=3;    //top
+        eavail[1]=1;    //bottom
+        eavail[2]=0;    //right
+    }
+    else if(x==(newcolumn-1)){ //right column
+        avail =3;
+        eavail = new int[avail];
+        eavail[0]=2;    //left
+        eavail[1]=1;    //bottom
+        eavail[2]=3;    //top
+    }
+    else{
+        avail =4;
+        eavail = new int[avail];
+        eavail[0]=2;    //left
+        eavail[1]=1;    //bottom
+        eavail[2]=3;    //top
+        eavail[3]=0;    //right
+    }
+}
+
+/*
+ * Does the opposite of findAvailableSpace
+ */
+QString DMFgui::findEmptySpace(int x, int y){
+    int emptySpaces = 0;                                         //keeps track of how many empty spaces there are
+    QString emptyElec = "";
+    if (dmf_array[y-1][x].text()==""){                           //check on top of the current electrode
+        emptyElec += "top,";
+        emptySpaces ++;
+    }
+    if (dmf_array[y+1][x].text()==""){                           //check bottom of current electrode
+        emptyElec += "bottom,";
+        emptySpaces++;
+    }
+    if (dmf_array[y][x-1].text()==""){                           //check to the left of current electrode
+        emptyElec += "left,";
+        emptySpaces++;
+    }
+    if (dmf_array[y][x+1].text()==""){                           //check to the right of current electrode
+        emptyElec += "right,";
+        emptySpaces++;
+    }
+    emptyElec += QString::number(emptySpaces);
+    ui->textEdit->insertPlainText("\nempty Electrodes: " + emptyElec);
+    ui->textEdit->insertPlainText("\nnumber of empty spaces: " + QString::number(emptySpaces));
+    return emptyElec;
+}
+
+
+/*
+ * save_to_String whichever electrode was selected for the autogenerated path
+ * sets the electrode green
+ */
+void DMFgui::activate(int y, int x,int position){
+    if (position == 0){                                          //start
+        dmf_array[y][x].setStyleSheet("background-color:blue; border-style: outset ;border-width: 2px; border-color: grey");
+    }
+    if(position==1){
+        dmf_array[y][x].setStyleSheet("background-color:green; border-style: outset ;border-width: 2px; border-color: grey");
+    }
+    if(position==2){
+        dmf_array[y][x].setStyleSheet("background-color:red; border-style: outset ;border-width: 2px; border-color: grey");
+    }
+//    save_to_String(dmf_array[y][x].text());
+//    dmf_array[y][x].setStyleSheet("background-color:green; border-style: outset ;border-width: 2px; border-color: grey");
+}
+/*
+ * clears the color of all the electrodes on the layout
+ * based on arrays for now
+ * #think about using LinkedList
+ */
+void DMFgui::ClearColor(){
+    if(autoGen){
+        for (int i=0;i<newrow;i++){                          //naming and setting properties for each button
+            for (int j=0;j<newcolumn;j++){
+                if (dmf_array[i][j].text() != ""){
+                    dmf_array[i][j].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+                }
+            }
+        }
+    }
+    autoGen = false;
+}
+/*--------------------------------------------------------------------------------------------------------
+ *
+ * Function Generator related Functions
+ * #TODO: open and close function generator
+ *        control the Frequency in addition to the voltage
+ *
+--------------------------------------------------------------------------------------------------------*/
+/*
+ * CLASS CALL: funcGen()
+ * Sends a voltage for the function generator
+ */
+void DMFgui::on_Voltage_SendButton_clicked(){
+    QString voltage = ui->lineEdit->text();
+    float to_Send = voltage.toFloat();
+
+    funcgen = new funcGen();
+    funcgen->send_voltage(to_Send);
+    }
+/*--------------------------------------------------------------------------------------------------------
+ *
+ * nemeSYS related Functions
+ * #TO DO: find a better way to check if nemeSYS is open or not
+ *
+--------------------------------------------------------------------------------------------------------*/
+/*
+ * setting target Volume
+ * disables setting FlowRate
+ */
+void DMFgui::on_targetVolume_clicked(){
+    ui->targetFlowRateEdit->setReadOnly(true);
+    ui->targetVolumeEdit->setReadOnly(false);                    //allowing for the value to be changed
+    volume = ui->targetVolumeEdit->text().toDouble();
+}
+/*
+ * setting target FlowRate
+ * disables setting Volume
+ */
+void DMFgui::on_targetFlow_clicked(){
+    ui->targetVolumeEdit->setReadOnly(true);
+    ui->targetFlowRateEdit->setReadOnly(false);                  //allowing for the value to be changed
+    flowRate = ui->targetFlowRateEdit->text().toDouble();
+}
+/*
+ * display error message if nemeSYS not open
+ */
+void DMFgui::nemesysNotOpenedErrorMessage(){
+    QMessageBox::warning(this,tr("NemeSYS not Opened"), tr("Please open NemeSYS first"));
+}
+/*
+ * display error message if nemeSYS already open
+ */
+void DMFgui::nemesysAlreadyOpenedMessage(){
+    QMessageBox::warning(this,tr("NemeSYS Opened"), tr("NemeSYS is already opened"));
+}
+/*
+ * display error message if nemeSYS is busy
+ */
+void DMFgui::nemesysDosingMessage(){
+    QMessageBox::warning(this,tr("NemeSYS is Dosing"), tr("Please wait until Dosing Unit is finished Dosing/Calibrating"));
+}
+/*
+ * display error message if nemeSYS is calibrating
+ * #May be unnecessary, to be confirmed
+ */
+void DMFgui::nemesysCalibrateMessage(){
+    QMessageBox::warning(this,tr("NemeSYS is Calibrating"), tr("Please wait until Dosing Unit is finished Calibrating"));
+}
+/*
+ * opening nemeSYS
+ */
+void DMFgui::on_OpenButton_clicked(){
+    nemesys = new Nemesys();
+
+    if (!opened){
+        nemesys->openConnection();
+    }
+    else{
+        nemesysAlreadyOpenedMessage();
+    }
+    opened = true;
+}
+/*
+ * closing nemeSYS
+ */
+void DMFgui::on_CloseButton_clicked(){
+    if (opened){
+        nemesys->closeConnection();
+        opened = false;
+    }
+    else{
+        nemesysNotOpenedErrorMessage();
+    }
+}
+/*
+ * dosing from syringe
+ * For now, put a positive volume and negative flow
+ */
+void DMFgui::on_doseButton_clicked(){
+    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)// && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
     {
-        qDebug() << "Couldn't write to serial";
+        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());        //which syringe to use
+
+        double volume = ui->targetVolumeEdit->text().toDouble();
+        double flow = ui->targetFlowRateEdit->text().toDouble();
+
+        unsigned char volumeUnit = (unsigned char)(ui->unitsComboBox->currentIndex());
+        nemesys->setActiveVolumeUnit(dosingUnit, volumeUnit);
+        unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
+        nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
+
+        nemesys->DoseVolume(dosingUnit, volume,flow);
+    }
+    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
+        nemesysDosingMessage();
+    }
+
+    //May be unnecessary, to be confirmed
+    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
+        nemesysCalibrateMessage();
+    }
+    else if (!opened){
+        nemesysNotOpenedErrorMessage();
     }
 }
-
-void DMFgui::on_UndoButton_clicked()
+/*
+ * emptying syringe
+ * For now put a positive flow value
+ */
+void DMFgui::on_emptyButton_clicked()
 {
-    ui->textEdit->undo(); //find a way to delete one by one.
+    //Open and not dosing or calibrating
+    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)    // && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
+    {
+        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
+
+        double flow = ui->targetFlowRateEdit->text().toDouble();
+        unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
+        nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
+
+        nemesys->EmptySyringe(dosingUnit, flow);                                                //only flow matters for emptying
+    }
+    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0) {
+         nemesysDosingMessage();
+    }
+    //May be unnecessary, to be confirmed
+    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
+        nemesysCalibrateMessage();
+    }
+    else if (!opened){
+         nemesysNotOpenedErrorMessage();
+    }
 }
+/*
+ * refilling syringe
+ * For now, ensure that you have a negative flow value
+ */
+void DMFgui::on_refillButton_clicked()
+{
+    //Open and not dosing or calibrating
+    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)// && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
+    {
+        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
+
+        double flow = ui->targetFlowRateEdit->text().toDouble();
+        unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
+        nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
+
+        nemesys->RefillSyringe(dosingUnit, flow);
+    }
+    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
+         nemesysDosingMessage();
+    }
+    //May be unnecessary, to be confirmed
+    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
+        nemesysCalibrateMessage();
+    }
+    else if (!opened){
+         nemesysNotOpenedErrorMessage();
+    }
+}
+/*
+ * Calibrates nemeSYS
+ */
+void DMFgui::on_CalibrateButton_clicked()
+{
+    //Open and not dosing
+    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)// && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
+    {
+
+        //Warning Message to make sure no syringes are placed
+        QMessageBox calibrateBox;
+        calibrateBox.setWindowTitle("Calibration Warning");
+        calibrateBox.setText("Please ensure that no syringes are placed in the dosing unit.\nExecuting the calibration move with a syringe fitted on the device may cause damage to the syringe.\n\nAre you ready?");
+        QAbstractButton* pButtonYes = calibrateBox.addButton(tr("Yes"), QMessageBox::YesRole);
+        calibrateBox.addButton(tr("No"), QMessageBox::NoRole);
+
+        calibrateBox.exec();
+
+        //Execute calibration if user is ready
+        if (calibrateBox.clickedButton()==pButtonYes) {
+            unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
+
+            unsigned char volumeUnit = (unsigned char)(ui->unitsComboBox->currentIndex());
+            nemesys->setActiveVolumeUnit(dosingUnit, volumeUnit);
+
+            unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
+            nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
+
+            nemesys->CalibrateUnit(dosingUnit);
+            nemesys->CheckCalibrateStatus(dosingUnit);
+        }
+    }
+    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
+        nemesysDosingMessage();
+
+    }
+    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
+        nemesysCalibrateMessage();
+    }
+    else if (!opened){
+        nemesysNotOpenedErrorMessage();
+    }
+
+}
+/*
+ * Stopping nemeSYS
+ */
+void DMFgui::on_StopButton_clicked()
+{
+    if(!opened){
+        nemesysNotOpenedErrorMessage();
+    }
+    else{
+        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
+        nemesys->StopUnit(dosingUnit);
+    }
+}
+/*
+ * not really sure.
+ */
+/*void DMFgui::on_MonitorButton_toggled(bool checked)
+{
+    if (checked){
+        ui->MButton->setDown(true);
+        ui->MButton->setAutoRepeat(true);
+        ui->MButton->setAutoRepeatDelay(100);
+        ui->MButton->setAutoRepeatInterval(100);
+    }
+    else{ 
+        ui->MButton->setAutoRepeat(false);
+        ui->MButton->setDown(false);
+    }
+
+}
+/*
+ *  Monitoring the levels of the syringes
+ * updates when the Monitor button is clicked
+ */
+/*void DMFgui::on_MButton_clicked()
+{
+    double actualFlow = nemesys->getActualFlowRate(0) ;
+    double actualSyringe = nemesys->getActualSyringeLevel(0);
+
+    ui->TargetMonitorFlowRate->setText(QString::number(actualFlow));
+    ui->TargetMonitorSyringeLevel->setText(QString::number(actualSyringe));
+}
+*/
+
+/*
+ * Monitoring functions for the nemesys
+ * Each dosing unit has it's own function
+ */
+
+
+
+/*
+ * Monitoring mouse movement
+ * #is this even useful?
+ */
+void DMFgui::mousePressEvent(QMouseEvent *e)
+{
+//    if (e->button() == Qt::LeftButton)
+//    {
+//        ui->textEdit->insertPlainText("Pressed"); //double check this, it's appearing with the line edit
+//    }
+}
+
+/*
+   double sminL, smaxL;
+   double* sL = nemesys->getSyringeLevels(0, sminL,smaxL);
+   ui->TargetMonitorFlowRate->setText(QString::number(sL[0]));
+   ui->TargetMonitorSyringeLevel->setText(QString::number(sL[1]));
+
+ */
+
+/*--------------------------------------------------------------------------------------------------------
+ *
+ * For importing an image on GraphicsView
+ *
+--------------------------------------------------------------------------------------------------------*/
 
 //void DMFgui::set_Scene()
 //{
@@ -1630,405 +1208,21 @@ void DMFgui::on_UndoButton_clicked()
 //    set_Scene();
 //}
 
-/*QString DMFgui::openNewWindow(int corner)
-{
-    dialog = new Dialog();
-
-    if (corner == 1)//"top-left"
-    {
-        dialog->choice("topLeft");
-        dialog->exec();
-        return dialog->saved;
-    }
-    else if (corner == 2)//"top-right"
-    {
-        dialog->choice("topRight");
-        dialog->exec();
-        return dialog->saved;
-    }
-    else if (corner == 3)//"bottom-right"
-    {
-        dialog->choice("bottomRight");
-        dialog->exec();
-        return dialog->saved;
-    }
-    else if(corner == 4)//"bottom-left"
-    {
-        dialog->choice("bottomLeft");
-        dialog->exec();
-        return dialog->saved;
-    }
-}*/
-
-void DMFgui::mousePressEvent(QMouseEvent *e)
-{
-//    if (e->button() == Qt::LeftButton)
-//    {
-//        ui->textEdit->insertPlainText("Pressed"); //double check this, it's appearing with the line edit
-//    }
-}
-
-void DMFgui::on_Voltage_SendButton_clicked()
-{
-    //read from the line edit then save as a float
-
-     QString voltage = ui->lineEdit->text(); //gets the text that you've entered
-
-    float to_Send = voltage.toFloat();
-
-    funcgen = new funcGen();
-
-    funcgen->send_voltage(to_Send);
-
-    }
-
-void DMFgui::on_autogen_Button_clicked()
-{
-    // Four inputs
-    int *z = getRecent_Coordinates();
-
-       int a1 = z[0];
-       int a2 = z[1];
-       int a3 = z[2];
-       int a4 = z[3];
-        //Path 1 is set as a default
-       ui->textEdit->insertPlainText("\n Hello\n");
-
-       QString route = autoGeneratePath(a2,a1,a4,a3);
-       ui->textEdit->insertPlainText("\n START: \n"+QString::number(a2)+QString::number(a1)+QString::number(a4)+QString::number(a3));
-
-}
-
-void DMFgui::on_targetVolume_clicked()
-{
-    ui->targetFlowRateEdit->setReadOnly(true);
-    //allowing for the value to be changed
-    ui->targetVolumeEdit->setReadOnly(false);
-    volume = ui->targetVolumeEdit->text().toDouble();
-}
-
-void DMFgui::on_targetFlow_clicked()
-{
-    ui->targetVolumeEdit->setReadOnly(true);
-    //allowing for the value to be changed
-    ui->targetFlowRateEdit->setReadOnly(false);
-    flowRate = ui->targetFlowRateEdit->text().toDouble();
-}
-
-void DMFgui::nemesysNotOpenedErrorMessage()
-{
-    QMessageBox::warning(this,tr("NemeSYS not Opened"), tr("Please open NemeSYS first"));
-}
-
-void DMFgui::nemesysAlreadyOpenedMessage()
-{
-    QMessageBox::warning(this,tr("NemeSYS Opened"), tr("NemeSYS is already opened"));
-}
-
-
-void DMFgui::nemesysDosingMessage()
-{
-    QMessageBox::warning(this,tr("NemeSYS is Dosing"), tr("Please wait until Dosing Unit is finished Dosing/Calibrating"));
-}
-
-
-//May be unnecessary, to be confirmed
-void DMFgui::nemesysCalibrateMessage()
-{
-    QMessageBox::warning(this,tr("NemeSYS is Calibrating"), tr("Please wait until Dosing Unit is finished Calibrating"));
-}
-
-void DMFgui::on_OpenButton_clicked()
-{
-    nemesys = new Nemesys();
-
-    if (!opened)
-    {
-        nemesys->openConnection();
-    }
-    else
-    {
-        nemesysAlreadyOpenedMessage();
-    }
-
-    opened = true;
-}
-
-void DMFgui::on_CloseButton_clicked()
-{
-    if (opened)
-    {
-        nemesys->closeConnection();
-        opened = false;
-    }
-    else
-    {
-        nemesysNotOpenedErrorMessage();
-    }
-}
-
-
-//For now, put a positive volume and negative flow
-void DMFgui::on_doseButton_clicked()
-{
-    //Open and not dosing or calibrating
-    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)// && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
-    {
-        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
-
-        double volume = ui->targetVolumeEdit->text().toDouble();
-
-        double flow = ui->targetFlowRateEdit->text().toDouble();
-
-        unsigned char volumeUnit = (unsigned char)(ui->unitsComboBox->currentIndex());
-        nemesys->setActiveVolumeUnit(dosingUnit, volumeUnit);
-
-        unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
-        nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
-
-        nemesys->DoseVolume(dosingUnit, volume,flow);
-    }
-    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0)
-    {
-        nemesysDosingMessage();
-    }
-
-    //May be unnecessary, to be confirmed
-    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
-        nemesysCalibrateMessage();
-    }
-    else if (!opened)
-    {
-        nemesysNotOpenedErrorMessage();
-    }
-}
-
-//For now put a positive flow value
-void DMFgui::on_emptyButton_clicked()
-{
-    //Open and not dosing or calibrating
-    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)    // && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
-    {
-        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
-
-        double flow = ui->targetFlowRateEdit->text().toDouble();
-
-        unsigned char volumeUnit = (unsigned char)(ui->unitsComboBox->currentIndex());
-        nemesys->setActiveVolumeUnit(dosingUnit, volumeUnit);
-
-        unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
-        nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
-
-        nemesys->EmptySyringe(dosingUnit, flow);
-    }
-    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0)
-    {
-         nemesysDosingMessage();
-    }
-
-    //May be unnecessary, to be confirmed
-    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
-        nemesysCalibrateMessage();
-    }
-     else if (!opened)
-    {
-         nemesysNotOpenedErrorMessage();
-    }
-}
-
-
-//For now, ensure that you have a negative flow value
-void DMFgui::on_refillButton_clicked()
-{
-    //Open and not dosing or calibrating
-    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)// && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
-    {
-        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
-
-        double flow = ui->targetFlowRateEdit->text().toDouble();
-
-        unsigned char volumeUnit = (unsigned char)(ui->unitsComboBox->currentIndex());
-        nemesys->setActiveVolumeUnit(dosingUnit, volumeUnit);
-
-        unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
-        nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
-
-        nemesys->RefillSyringe(dosingUnit, flow);
-    }
-    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0)
-    {
-         nemesysDosingMessage();
-    }
-
-    //May be unnecessary, to be confirmed
-    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
-        nemesysCalibrateMessage();
-    }
-     else if (!opened)
-    {
-         nemesysNotOpenedErrorMessage();
-    }
-}
-
-void DMFgui::on_CalibrateButton_clicked()
-{
-    //Open and not dosing
-    if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 1)// && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()) == 1))
-    {
-
-        //Warning Message to make sure no syringes are placed
-        QMessageBox calibrateBox;
-        calibrateBox.setWindowTitle("Calibration Warning");
-        calibrateBox.setText("Please ensure that no syringes are placed in the dosing unit.\nExecuting the calibration move with a syringe fitted on the device may cause damage to the syringe.\n\nAre you ready?");
-        QAbstractButton* pButtonYes = calibrateBox.addButton(tr("Yes"), QMessageBox::YesRole);
-        calibrateBox.addButton(tr("No"), QMessageBox::NoRole);
-
-        calibrateBox.exec();
-
-        //Execute calibration if user is ready
-        if (calibrateBox.clickedButton()==pButtonYes) {
-            unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
-
-            unsigned char volumeUnit = (unsigned char)(ui->unitsComboBox->currentIndex());
-            nemesys->setActiveVolumeUnit(dosingUnit, volumeUnit);
-
-            unsigned char flowUnit = (unsigned char)(ui->funitscomboBox->currentIndex());
-            nemesys->setActiveFlowUnit(dosingUnit, flowUnit);
-
-            nemesys->CalibrateUnit(dosingUnit);
-            nemesys->CheckCalibrateStatus(dosingUnit);
-        }
-    }
-    else if (opened && nemesys->CheckDosingStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
-        nemesysDosingMessage();
-
-    }
-    else if (opened && nemesys->CheckCalibrateStatus((unsigned char)(ui->dosingUnitscomboBox->currentIndex()))== 0){
-        nemesysCalibrateMessage();
-    }
-
-    else if (!opened)
-    {
-        nemesysNotOpenedErrorMessage();
-    }
-
-}
-
-void DMFgui::on_StopButton_clicked()
-{
-    if(!opened)
-    {
-        nemesysNotOpenedErrorMessage();
-    }
-    else
-    {
-        unsigned char dosingUnit = (unsigned char)(ui->dosingUnitscomboBox->currentIndex());
-        nemesys->StopUnit(dosingUnit);
-    }
-}
-
-
-void DMFgui::on_MButton1_clicked()
-{
-    aa++;
-    bb++;
-    //double actualFlow = nemesys->getActualFlowRate(0) ;
-    //double actualSyringe = nemesys->getActualSyringeLevel(0);
-
-    ui->TargetMonitorFlowRate->setText(QString::number(aa));
-    ui->TargetMonitorSyringeLevel->setText(QString::number(bb));
-}
-
+/*-------------------------------------------------------------
+ *
+ * FUNCTIONS
+ * Write to text file
+ * Read from text file
+ * Preview electrodes to be turned on
+ * Allow users to write to Montior
+ *
+ -------------------------------------------------------------*/
 
 /*
-   double sminL, smaxL;
-   double* sL = nemesys->getSyringeLevels(0, sminL,smaxL);
-   ui->TargetMonitorFlowRate->setText(QString::number(sL[0]));
-   ui->TargetMonitorSyringeLevel->setText(QString::number(sL[1]));
-
+ * Write data in serial monitor to a text file
+ *
+ * TO DO: We would like the user to be able to name the file and create multiple text files
  */
-
-void DMFgui::on_MonitorBox1_toggled(bool checked)
-{
-    if (checked)
-    {
-        int rate = ui->targetRefreshRateEdit->text().toInt();
-        ui->MButton1->setDown(true);
-        ui->MButton1->setAutoRepeat(true);
-        ui->MButton1->setAutoRepeatDelay(rate);
-        ui->MButton1->setAutoRepeatInterval(rate);
-    }
-    else
-    {
-        ui->MButton1->setAutoRepeat(false);
-        ui->MButton1->setDown(false);
-    }
-}
-
-void DMFgui::on_MonitorBox2_toggled(bool checked)
-{
-    if (checked)
-    {
-        int rate = ui->targetRefreshRateEdit->text().toInt();
-        ui->MButton2->setDown(true);
-        ui->MButton2->setAutoRepeat(true);
-        ui->MButton2->setAutoRepeatDelay(rate);
-        ui->MButton2->setAutoRepeatInterval(rate);
-    }
-    else
-    {
-        ui->MButton2->setAutoRepeat(false);
-        ui->MButton2->setDown(false);
-    }
-}
-
-void DMFgui::on_MButton2_clicked()
-{
-    cc++;
-    dd++;
-
-
-    ui->TargetMonitorFlowRate2->setText(QString::number(cc));
-    ui->TargetMonitorSyringeLevel2->setText(QString::number(dd));
-}
-
-void DMFgui::on_MonitorBox3_toggled(bool checked)
-{
-    if (checked)
-    {
-        int rate = ui->targetRefreshRateEdit->text().toInt();
-        ui->MButton3->setDown(true);
-        ui->MButton3->setAutoRepeat(true);
-        ui->MButton3->setAutoRepeatDelay(rate);
-        ui->MButton3->setAutoRepeatInterval(rate);
-    }
-    else
-    {
-        ui->MButton3->setAutoRepeat(false);
-        ui->MButton3->setDown(false);
-    }
-}
-
-void DMFgui::on_MButton3_clicked()
-{
-    ee++;
-    ff++;
-    ui->TargetMonitorFlowRate3->setText(QString::number(ee));
-    ui->TargetMonitorSyringeLevel3->setText(QString::number(ff));
-}
-
-
-
-/*---------------------------------------
- *
- *
- * Functions for Writing/Reading Sequence files
- *
- * ---------------------------------------*/
-
-/*------------
- * Write the sequence that is in the serial monitor to a text file
- * ----------*/
 
 void DMFgui::on_writeButton_clicked()
 {
@@ -2036,11 +1230,10 @@ void DMFgui::on_writeButton_clicked()
         mapNotCreatedErrorMessage();
     }
     else{
+        //C:/Users/kaleem/Summer_2016/Steve Shih Project/GitHub/dmf3/DMF-master (2)/DMF-master/dmf32/ex.txt
+        //Ensure that the path is correct, in this case, it places it in the build folder
 
-        QString fileName = QFileDialog::getSaveFileName(this,
-        tr("Save Text files"), "C:/Users/kaleem/Summer_2016/Steve Shih Project/SequenceFiles", tr("Text Files (*.txt)"));
-
-        QFile file (fileName);
+        QFile file ("ex3.txt");
         if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
             return;
         QTextStream out(&file);
@@ -2048,23 +1241,24 @@ void DMFgui::on_writeButton_clicked()
     }
 }
 
-/*------------
- * Read the sequence that is in the text file and send display it on the serial monitor
- * "line" contains the sequence
- * In this case, the text file is stored locally in the Build folder
- * ----------*/
+/*
+ * Read data from a text file and display on to serial monitor
+ *
+ * TO DO: We would like the user to be able to READ from different text files that have been created
+ * It may be best to create a new window containing all of the text files that relate to DMFGUI
+ *
+ */
 
-void DMFgui::on_ReadButton_clicked()
+void DMFgui::on_readButton_clicked()
 {
     if (!mapCreated){
         mapNotCreatedErrorMessage();
     }
     else{
+        //C:/Users/kaleem/Summer_2016/Steve Shih Project/GitHub/dmf3/DMF-master (2)/DMF-master/dmf32/ex.txt
+        //Ensure that the path is correct, in this case, it places it in the build folder
 
-        QString fileName = QFileDialog::getOpenFileName(this,
-        tr("Open Text files"), "C:/Users/kaleem/Summer_2016/Steve Shih Project/SequenceFiles", tr("Text Files (*.txt)"));
-
-        QFile file (fileName);
+        QFile file ("ex3.txt");
         if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
             return;
         QTextStream in(&file);
@@ -2074,15 +1268,108 @@ void DMFgui::on_ReadButton_clicked()
         while (!in.atEnd()) {
              line = in.readLine().insert(0,line);
         }
+
+        //Display lines
+
         ui->textEdit->setPlainText(line);
+
     }
- }
+}
+
+/*
+ * Preview the electrodes to be turned on based on data in the serial monitor
+*/
+
+void DMFgui::on_previewButton_clicked()
+{
+    if (!mapCreated){
+        mapNotCreatedErrorMessage();
+    }
+
+    else {
+        QString prevElec = ui->textEdit->toPlainText();
+        QStringList elec = prevElec.split(",");
+        //Preview delay is set in seconds, so multiply by 1000 to give seconds from milliseconds
+        double previewDelay = ui->previewSpeedEdit->text().toDouble()*1000;
+        QString prevcolor = "red";  //Default color
+        ui->textEdit->clear();
+        for (int a = 0; a<elec.size(); a++){
+
+            //If statements set the color
+
+            if(elec.at(a).toInt()==1000){
+                prevcolor = "red";
+                ui->textEdit->insertPlainText(elec.at(a)+",");
+                qApp->processEvents();
+                Sleep(previewDelay);
+            }
+            else if (elec.at(a).toInt()==1003){
+                prevcolor = "orange";
+                ui->textEdit->insertPlainText(elec.at(a)+",");
+                qApp->processEvents();
+                Sleep(previewDelay);
+            }
+
+            //Temporary solution, it only splits two electrodes, need to come up with a better solution
+            else if (elec.at(a).toInt()==1001){
+                prevcolor = "blue";
+                int b = a+1;
+                int c = a+2;
 
 
-/*------------
- * Get the Index values (row and column) from an electrode
- * Returns it in a integer pointer
- * ----------*/
+                ui->textEdit->insertPlainText(elec.at(a)+",");
+                qApp->processEvents();
+                Sleep(previewDelay);
+
+                ui->textEdit->insertPlainText(elec.at(b)+",");
+                ui->textEdit->insertPlainText(elec.at(c)+",");
+
+                //Get index of the element one positions away from 1001
+                int* pete = returnIndex(dmf_array,newrow,newcolumn,elec.at(b).toInt());
+                int row1 = pete[0];
+                int col1 = pete[1];
+
+                //Get index of the element two positions away from 1001
+                int* pete2 = returnIndex(dmf_array,newrow,newcolumn,elec.at(c).toInt());
+                int row2 = pete2[0];
+                int col2 = pete2[1];
+
+                dmf_array[row1][col1].setStyleSheet("background-color:"+prevcolor+"; border-style: outset ;border-width: 2px; border-color: grey");
+                dmf_array[row2][col2].setStyleSheet("background-color:"+prevcolor+"; border-style: outset ;border-width: 2px; border-color: grey");
+                qApp->processEvents();
+                Sleep(previewDelay);
+                dmf_array[row1][col1].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+                dmf_array[row2][col2].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+                qApp->processEvents();
+                a+=2;
+
+            }
+
+            //Sets the color of the electrode in question, turns it on and off after a short delay
+            else{
+
+                //Get index of the current element
+                int* pete = returnIndex(dmf_array,newrow,newcolumn,elec.at(a).toInt());
+
+                //Store locally in this loop (may be unnecessary)
+                int row1 = pete[0];
+                int col1 = pete[1];
+
+                ui->textEdit->insertPlainText(elec.at(a)+",");
+                dmf_array[row1][col1].setStyleSheet("background-color:"+prevcolor+"; border-style: outset ;border-width: 2px; border-color: grey");
+                qApp->processEvents();
+                Sleep(previewDelay);
+                dmf_array[row1][col1].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
+                qApp->processEvents();
+            }
+        }
+        //ui->textEdit->insertPlainText("Preview is Done");
+    }
+}
+
+/*
+ * Get the index from the electrodes's value
+*/
 
 int* DMFgui::returnIndex(QPushButton** arr,int sizerow, int sizecol, int seek){
     int val [2];
@@ -2099,11 +1386,21 @@ int* DMFgui::returnIndex(QPushButton** arr,int sizerow, int sizecol, int seek){
     return err;
 }
 
-/*------------
- * Writebox, if enabled -> Allows User to modify the Serial Monitor
- * Can be used to manually change the sequence without having to press down on a button
- * ----------*/
-void DMFgui::on_WritetoTextBox_clicked(bool checked)
+/*
+ * Error message if the map/grid has not be created yet
+*/
+
+void DMFgui::mapNotCreatedErrorMessage()
+{
+    QMessageBox::warning(this,tr("Map Creation"), tr("Map is not created yet"));
+}
+
+/*
+ * Allow user to write directly to serial monitor
+ * User should be WARNED that error may occur if the serial text is not formatted properly
+*/
+
+void DMFgui::on_writeToMonitorBox_clicked(bool checked)
 {
     if (checked){
         ui->textEdit->setReadOnly(false);
@@ -2112,443 +1409,173 @@ void DMFgui::on_WritetoTextBox_clicked(bool checked)
         ui->textEdit->setReadOnly(true);
 }
 
-
-/*------------
-* Preview the sequence in the Serial Monitor
-* Each electrode turns on one after another
-* Color is set depending on the type of sequencing (sequence, mix, split,etc.)
-* Preview delay is set in seconds by the user
-* ----------*/
-
-void DMFgui::on_PreviewButton_clicked()
+void DMFgui::on_MonitorBox1_clicked(bool checked)
 {
-
-    if (!mapCreated){
-        mapNotCreatedErrorMessage();
+    if (checked && opened)
+    {
+        int rate = ui->targetRefreshRateEdit->text().toInt();
+        ui->MButton1->setDown(true);
+        ui->MButton1->setAutoRepeat(true);
+        ui->MButton1->setAutoRepeatDelay(rate);
+        ui->MButton1->setAutoRepeatInterval(rate);
     }
-
-    else {
-        QString previewElectrodes = ui->textEdit->toPlainText();
-        QStringList electrodeList = previewElectrodes.split(",");
-        electrodeList.removeAt(electrodeList.length()-1);
-        double previewDelay = ui->PreviewSpeedEdit->text().toDouble()*1000;
-        QString previewColor = "red";
-        ui->textEdit->clear();
-        for (int a = 0; a<electrodeList.size(); a++){
-            if(electrodeList.at(a)=="1000"){
-                previewColor = "red";
-                ui->textEdit->insertPlainText(electrodeList.at(a)+",");
-                qApp->processEvents();
-                Sleep(previewDelay);
-            }
-            else if (electrodeList.at(a)=="Mix"){
-                previewColor = "orange";
-                ui->textEdit->insertPlainText(electrodeList.at(a)+",");
-                qApp->processEvents();
-                Sleep(previewDelay);
-            }
-
-            //Temporary solution, it only splits two electrodes, need to come up with a better solution
-            else if (electrodeList.at(a)=="Split"){
-                previewColor = "blue";
-                int b = a+1;
-                int c = a+2;
-                ui->textEdit->insertPlainText(electrodeList.at(a)+",");
-                qApp->processEvents();
-                Sleep(previewDelay);
-
-                ui->textEdit->insertPlainText(electrodeList.at(b)+",");
-                ui->textEdit->insertPlainText(electrodeList.at(c)+",");
-
-                //Get index of the element one positions away from 1001
-                int* retIndex_1 = returnIndex(dmf_array,newrow,newcolumn,electrodeList.at(b).toInt());
-                int row1 = retIndex_1[0];
-                int col1 = retIndex_1[1];
-
-                //Get index of the element two positions away from 1001
-                int* retIndex_2 = returnIndex(dmf_array,newrow,newcolumn,electrodeList.at(c).toInt());
-                int row2 = retIndex_2[0];
-                int col2 = retIndex_2[1];
-
-                dmf_array[row1][col1].setStyleSheet("background-color:"+previewColor+"; border-style: outset ;border-width: 2px; border-color: grey");
-                dmf_array[row2][col2].setStyleSheet("background-color:"+previewColor+"; border-style: outset ;border-width: 2px; border-color: grey");
-                qApp->processEvents();
-                Sleep(previewDelay);
-                dmf_array[row1][col1].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
-                dmf_array[row2][col2].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
-                qApp->processEvents();
-                a+=2;
-            }
-            else{
-                int* retIndex = returnIndex(dmf_array,newrow,newcolumn,electrodeList.at(a).toInt());
-                int row1 = retIndex[0];
-                int col1 = retIndex[1];
-
-                ui->textEdit->insertPlainText(electrodeList.at(a)+",");
-
-                dmf_array[row1][col1].setStyleSheet("background-color:"+previewColor+"; border-style: outset ;border-width: 2px; border-color: grey");
-                qApp->processEvents();
-                Sleep(previewDelay);
-                dmf_array[row1][col1].setStyleSheet( "border-style: outset ;border-width: 2px; border-color: grey");
-                qApp->processEvents();
-            }
-        }
-    }
-}
-
-/*-----------------------------
- *
- * Functions:
- * Create a New Map Layout
- * Saving a Map Layout
- * Loading a Map Layout
- * Reading a Txt file --> represents the contact pad information
- * Filling the buttons with the contact pad information based on text file
- *
- * ------------------------------*/
-
-
-/*------
- * New Map Layout, allow access to row and column text edit
- * -----*/
-void DMFgui::on_newLayoutButton_clicked()
-{
-    openNewLayoutWindow(true);
-    //ui->rowEdit->setEnabled(true);
-    //ui->columnEdit->setEnabled(true);
-}
-
-/*--------------
- * Steps for getting contact pad informatoin:
- * 1.export the contact pad information into a .asc file
- * 2.Save the file as a text delimited file, a .txt file, in the build folder (for now)
- * This Function --> 3. read the text file and intrepret information
- *
- * Steps for this function:
- * A- READ TXT FILE CONTAINING ELECTRODE + CONTACT PAD INFORMATION
- * B- FILTERS OUT LINES THAT DON'T CONTAIN NECESSARY INFO
- * C- SORT THE INFORMATION IN ASCENDING ORDER (FROM TOP-LEFT TO BOTTOM-RIGHT)
- * ---------------*/
-
-
-
-void DMFgui::on_readCSVButton_clicked()
-{
-    if(!csvFileRead){
-        QString fileName;
-        if(newWindowButtonpressed){
-            fileName = nLayout->savedNumberingfilename;
-        }
-        else if(loadWindowButtonpressed){
-             fileName = lLayout->savedContactPadfilename;
-        }
-        else{
-            fileName = "C:/Users/kaleem/Summer_2016/Steve Shih Project/ContactPadFiles/dmfdesign1.txt";
-        }
-        QFile file (fileName);
-        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-            return;
-        QTextStream in(&file);
-        QString line;
-        QStringList a;
-        int count =0;
-
-        //READ TXT FILE CONTAINING ELECTRODE + CONTACT PAD INFORMATION
-        //FILTERS OUT LINES THAT DON'T CONTAIN NECESSARY INFO
-        //STORE LINES THAT CONTAIN T1 ==> THIS REPRESENTS RESDES,
-
-        while (!in.atEnd()) {
-             line = in.readLine();
-             if(line.contains("T1.", Qt::CaseInsensitive)){
-                 a.append(line);
-                 count++;
-             }
-        }
-
-        //SORTING ENSURES THAT ALL OF THE ELECTRODES ARE TO THE LEFT, THIS IS TO ENSURE THAT ASCENDING SORTING CAN BE DONE
-        //ADDs "0"s if needed, this is to ensure that sorting is done properly
-        //CALCULATES THE NUMBER of "0"s to add
-         //CRUDE METHOD FOR NOW: ADD "0" depending on how many need to be added)
-
-        QStringList b;
-
-        for(int i=0;i<count;i++){
-            b = a.at(i).split(" ");
-            sort(b.begin(),b.end());
-            if(b.at(5).length()<6){
-                int a = 6-b.at(5).length();
-                QStringList c = b.at(5).split(".");
-                QString d;
-                if(a==1){
-                    d="0";
-                }
-                else if(a==2){
-                    d="00";
-                }
-                else if(a==3){
-                    d="000";
-                }
-                b.replace(5,(c.at(0)+"."+d+c.at(1)));               //CONCATENATES ADDED "0"s
-            }
-            a.replace(i,(b.at(5)+" "+b.at(6)));                     //CONCATENATES CONTACT PADS AND ELECTRODES BACK TOGETHER
-        }
-        sort(a.begin(),a.end());                                    //SORTS INTO ASCENDING ORDER LIST OF ELECTRODES WITH THEIR RESPECTIVE CONTACT PADS
-        QStringList tempCP;
-        QRegExp rx("(\\ |\\.)");                                    //RegEx for ' ' or ','
-        for(int k = 0;k<count;k++){
-            tempCP = a.at(k).split(rx);
-            ordCP.append(tempCP.at(3));
-        }
-        for(int w=0;w<ordCP.length();w++){
-            ui->textEdit->insertPlainText(ordCP.at(w)+"\n");        //ONLY DISPLAYS RESPECTIVE CONTACT PADS
-        }
-        ui->textEdit->insertPlainText("LENGTH: "+ QString::number(ordCP.length()));
-        csvFileRead=true;
+    else if (!opened)
+    {
+        nemesysNotOpenedErrorMessage();
+        ui->MonitorBox1->setChecked(false);
     }
     else
     {
-        QMessageBox::warning(this,tr("csvFile"), tr("This file has already been read"));
+        ui->MButton1->setAutoRepeat(false);
+        ui->MButton1->setDown(false);
     }
 }
 
-
-/*-------------
- * Fills the buttons with the contact pad information after the map has been created and the csv file has been read
- * -----------*/
-
-void DMFgui::on_fillTextButton_clicked()
+void DMFgui::on_MonitorBox2_clicked(bool checked)
 {
-    if(csvFileRead){// && ordCP.length()==numberofButtons){
-        int z=0;
-        for (int i=0;i<newrow;i++)
-        {
-            for (int j=0;j<newcolumn;j++)
-            {
-                if(z<ordCP.length() && dmf_array[i][j].text()!=""){
-                    dmf_array[i][j].setText(ordCP.at(z));
-                    mapper->connect(&dmf_array[i][j],SIGNAL(clicked()),mapper,SLOT(map()));
-                    mapper->setMapping(&dmf_array[i][j],QString::number(i)+","+QString::number(j)+","+ordCP.at(z));     // numberingcount-1));//QString::number(numberingcount));
-                    z++;
-                }
-                else if (z>=ordCP.length()&& dmf_array[i][j].text()!=""){
-                    //ui->textEdit->setPlainText("There are more buttons than there are contact pads");
-                    z++;
-                }
-
-            }
-        }
-        connect(mapper,SIGNAL(mapped(QString)),this,SLOT(buttonClicked(QString)));
-        ui->textEdit->setPlainText("");
-        ui->textEdit->insertPlainText("Number of Contact Pads: " + QString::number(ordCP.length()) + ", Number of Buttons: " + QString::number(z)+"\n");
-        if(z>=ordCP.length()){
-            ui->textEdit->insertPlainText("There are more contact pads than there are buttons");
-        }
-    }
-    else if(!csvFileRead)
+    if (checked && opened)
     {
-        csvFileNotRead();
+        int rate = ui->targetRefreshRateEdit->text().toInt();
+        ui->MButton2->setDown(true);
+        ui->MButton2->setAutoRepeat(true);
+        ui->MButton2->setAutoRepeatDelay(rate);
+        ui->MButton2->setAutoRepeatInterval(rate);
     }
-    else {
-        QMessageBox::warning(this,tr("Buttons"), tr("The number of buttons and number of contact pads are different"));
+    else if (!opened)
+    {
+        nemesysNotOpenedErrorMessage();
+        ui->MonitorBox2->setChecked(false);
+    }
+    else
+    {
+        ui->MButton2->setAutoRepeat(false);
+        ui->MButton2->setDown(false);
     }
 }
 
-/*-----------
- * Loads the map layout information from the text file
- * For now, the text file is located in the build folder
- * ---------*/
-
-void DMFgui::on_loadLayoutButton_clicked(bool checked)
+void DMFgui::on_MonitorBox3_clicked(bool checked)
 {
-    if (true){
-        loadWindowButtonpressed = true;
-        newWindowButtonpressed = false;
+    if (checked && opened)
+    {
+        int rate = ui->targetRefreshRateEdit->text().toInt();
+        ui->MButton3->setDown(true);
+        ui->MButton3->setAutoRepeat(true);
+        ui->MButton3->setAutoRepeatDelay(rate);
+        ui->MButton3->setAutoRepeatInterval(rate);
     }
-    lLayout = new loadlayout();
-    lLayout->exec();
-    defaultNumbering = lLayout->savedNumbering;
-    /*
-    if(!mapCreated){
-        QString fileName;
-        if(loadWindowButtonpressed){
-            fileName = lLayout->savedLayoutfilename;
-        }else{
-            fileName = QFileDialog::getOpenFileName(this,
-                    tr("Open Text files"), "C:/Users/kaleem/Summer_2016/Steve Shih Project/LayoutFiles", tr("Text Files (*.txt)"));
-        }
+    else if (!opened)
+    {
+        nemesysNotOpenedErrorMessage();
+        ui->MonitorBox3->setChecked(false);
+    }
+    else
+    {
+        ui->MButton3->setAutoRepeat(false);
+        ui->MButton3->setDown(false);
+    }
+}
 
+void DMFgui::on_MButton1_clicked()
+{
+    double actualFlow = nemesys->getActualFlowRate(0) ;
+    double actualSyringe = nemesys->getActualSyringeLevel(0);
 
+    ui->TargetMonitorFlowRate_1->setText(QString::number(actualFlow));
+    ui->TargetMonitorSyringeLevel_1->setText(QString::number(actualSyringe));
+}
 
+void DMFgui::on_MButton2_clicked()
+{
+    double actualFlow = nemesys->getActualFlowRate(1) ;
+    double actualSyringe = nemesys->getActualSyringeLevel(1);
 
-        QFile file (fileName);
-        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-            return;
-        QTextStream in(&file);
-        QString line;
-        QStringList mazeInfo;
-        while (!in.atEnd()) {
-             mazeInfo.append(in.readLine());
-        }
+    ui->TargetMonitorFlowRate_2->setText(QString::number(actualFlow));
+    ui->TargetMonitorSyringeLevel_2->setText(QString::number(actualSyringe));
+}
 
-        QList <int> CreateMapInfoRow;
-        QList <int> CreateMapInfoCol;
+void DMFgui::on_MButton3_clicked()
+{
+    double actualFlow = nemesys->getActualFlowRate(2) ;
+    double actualSyringe = nemesys->getActualSyringeLevel(2);
 
-        QStringList tempMap;
-        for(int a=0;a<mazeInfo.length();a++){
-            tempMap = mazeInfo.at(a).split(",");
-            CreateMapInfoRow.append(tempMap.at(0).toInt());
-            CreateMapInfoCol.append(tempMap.at(1).toInt());
-        }
+    ui->TargetMonitorFlowRate_3->setText(QString::number(actualFlow));
+    ui->TargetMonitorSyringeLevel_3->setText(QString::number(actualSyringe));
+}
 
-        /*-------------------------
-         * Creating Map
-         * ------------------------
+void DMFgui::on_readPCBinfoButton_clicked()
+{
 
-        gridLayout = new QGridLayout;
-        mapper = new QSignalMapper;
+    QFile file ("red_10elec.txt");
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+    QTextStream in(&file);
+    QString line;
+    QStringList a;
+    int count =0;
+    //READ TXT FILE CONTAINING ELECTRODE + CONTACT PAD INFORMATION
+    //FILTERS OUT LINES THAT DON'T CONTAIN NECESSARY INFO
 
-        gridLayout->setHorizontalSpacing(0);
-        gridLayout->setVerticalSpacing(0);
-        gridLayout->setSpacing(0);
+    while (!in.atEnd()) {
+         line = in.readLine();//.insert(0,line);
 
+         //STORE LINES THAT CONTAIN T1 ==> THIS REPRESENTS RESDES,
+         if(line.contains("T1.", Qt::CaseInsensitive)){
+             a.append(line);
+             count++;
+         }
+    }
 
-        int maprow = CreateMapInfoRow.at(0);
-        int mapcol = CreateMapInfoCol.at(0);
+    QStringList b;
 
-        /*-----------------------------------------
-         * Globally change the newrow and newcolumn value
-         *
-         * --------------------------------------
-        newrow = maprow;
-        newcolumn = mapcol;
+    //Not needed for now
+    //    QRegExp rx("(\\ |\\.)"); //RegEx for ' ' or ',' or '.' or ':' or '\t'
+    //    QStringList query = sometext.split(rx);
 
+    for(int i=0;i<count;i++){
+        b = a.at(i).split(" ");
+        sort(b.begin(),b.end());                            //SORTING ENSURES THAT ALL OF THE ELECTRODES ARE TO THE LEFT, THIS IS TO ENSURE THAT ASCENDING SORTING CAN BE DONE
 
-        dmf_array = new QPushButton*[maprow];
-        for(int i=0;i<maprow;i++){
-            dmf_array[i]=new QPushButton[mapcol];
-        }
-
-        QLabel *empty = new QLabel(this);
-
-        int s=1;
-        for (int i=0;i<maprow;i++)
-        {
-            for (int j=0;j<mapcol;j++)
-            {
-                //If the index corresponds to one that is in our button information, create the button at that location
-                if (s<CreateMapInfoCol.length() && i==CreateMapInfoRow.at(s) && j==CreateMapInfoCol.at(s))
-                {
-                    //The "_" is used for now, but anything can be used as a means to differntiate from empty boxes which have text = ""
-                    dmf_array[i][j].setText("_");
-                    dmf_array[i][j].setStyleSheet("border-style: outset ;border-width: 2px; border-color: grey");
-                    gridLayout->addWidget(&dmf_array[i][j],i,j);
-                    s++;
-                }
-                //If not, create an empty box
-                else
-                {
-                    gridLayout->addWidget(empty,i,j);
-                }
+        if(b.at(5).length()<6){                             //ADDs "0"s if needed, this is to ensure that sorting is done properly
+            int a = 6-b.at(5).length();                     //CALCULATES THE NUMBER of "0"s to add
+            QStringList c = b.at(5).split(".");
+            QString d;                                      //CRUDE METHOD FOR NOW: ADD "0" depending on how many need to be added)
+            if(a==1){
+                d="0";
             }
-        }
-        //numberofButtons = CreateMapInfoCol.length()-1;
-        //Set the layout
-        ui->graphicsView->setLayout(gridLayout);
-        mapCreated=true;
-    }
-    else{
-        QMessageBox::warning(this,tr("Map Creation"), tr("Map has already been created yet \nYou can't load at this time."));
-    }*/
-}
-
-/*-----------
- * Save Layout information in a list
- * Info to be stored:
- * The map size (row and column)
- * The buttons to be created (row and column)
- * ---------*/
-void DMFgui::on_saveLayoutButton_clicked()
-{
-    if(!mapCreated){
-        mapNotCreatedErrorMessage();
-    }
-    else if(!coordsStored){
-        int z=0;
-        Coordz.append(newrow);
-        Coordz.append(newcolumn);
-        ui->textEdit->setPlainText("");
-
-        ui->textEdit->insertPlainText( QString::number(Coordz.at(0)) + "," + QString::number(Coordz.at(1))+ "\n");
-        for (int i=0;i<newrow;i++)
-        {
-            for (int j=0;j<newcolumn;j++)
-            {
-                if(dmf_array[i][j].text()!=""){
-                    z++;
-                    Coordz.append(i);
-                    Coordz.append(j);
-                }
+            else if(a==2){
+                d="00";
             }
+            else if(a==3){
+                d="000";
+            }
+
+            b.replace(5,(c.at(0)+"."+d+c.at(1)));           //CONCATENATES ADDED "0"s
         }
-        for(int p=2;p<Coordz.length();p++){
-            ui->textEdit->insertPlainText(QString::number(Coordz.at(p)) + "," + QString::number(Coordz.at(p+1))+ "\n");
-            p++;
-        }
 
 
-        QString fileName = QFileDialog::getSaveFileName(this,
-        tr("Save Text files"), "C:/Users/kaleem/Summer_2016/Steve Shih Project/LayoutFiles", tr("Text Files (*.txt)"));
-
-
-        QFile file (fileName);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-            return;
-        QTextStream out(&file);
-        out << ui->textEdit->toPlainText();             //**There may be a better way to send the info than through the textEdit
-        coordsStored=true;
+        a.replace(i,(b.at(5)+" "+b.at(6)));                 //CONCATENATES CONTACT PADS AND ELECTRODES BACK TOGETHER
+        //ui->textEdit->insertPlainText(a.at(i)+"\n");
     }
-    else{
-        QMessageBox::warning(this,tr("Coordinates"), tr("The coordinates have already been stored"));
+    sort(a.begin(),a.end());                                //SORTS INTO ASCENDING ORDER LIST OF ELECTRODES WITH THEIR RESPECTIVE CONTACT PADS
+    //QStringList ordCP;                                      //WILL CONTAIN THE LIST OF THE CONTACT PADS IN ORDER OF ASCENDING ELECTRODES *MOST LIKELY WILL BE A GLOBAL VARIABLE*
+    QStringList tempCP;
+    QRegExp rx("(\\ |\\.)"); //RegEx for ' ' or ','
+    for(int k = 0;k<count;k++){
+        tempCP = a.at(k).split(rx);
+       // ui->textEdit->insertPlainText(tempCP.at(3)+"\n");
+        ordCP.append(tempCP.at(3));
     }
-
+    for(int w=0;w<ordCP.length();w++){
+        ui->textEdit->insertPlainText(ordCP.at(w)+"\n");        //ONLY DISPLAYS RESPECTIVE CONTACT PADS
+    }
+    ui->textEdit->insertPlainText("LENGTH: "+ QString::number(ordCP.length()));
 }
 
-
-/*------------
- *
- * ERROR MESSAGES
- *
- * ----------*/
-
-void DMFgui::mapNotCreatedErrorMessage()
+void DMFgui::on_realTimeSequencingBox_clicked(bool checked)
 {
-    QMessageBox::warning(this,tr("Map Creation"), tr("Map is not created yet"));
-}
-
-
-void DMFgui::csvFileNotRead()
-{
-    QMessageBox::warning(this,tr("csvFile"), tr("This file has not been read yet"));
-}
-
-
-
-
-void DMFgui::openNewLayoutWindow(bool checked){
-
     if (checked){
-        newWindowButtonpressed = true;
-        loadWindowButtonpressed = false;
-
+        realTime = true;
     }
-    nLayout = new newlayout();
-    //nLayout->on_defaultNumberingBox_clicked(true);
-    nLayout->exec();
-
-//    row =nLayout->savedRow;
-//    column =nLayout->savedCol;
-    defaultNumbering = nLayout->savedNumbering;
-
-
+    else
+        realTime = false;
 }
-
