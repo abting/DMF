@@ -25,7 +25,7 @@ class MainWindow : public QMainWindow
 {
     Q_OBJECT
 private slots:
-    void whatever();
+    void whatever(QAction*);
 public:
     explicit MainWindow(QWidget *parent = 0);
 //    bool compare_priority (const Object&,const Object&);

@@ -22,11 +22,8 @@ MainWindow::MainWindow(QWidget *parent) :
     actionwhatever->setShortcuts(QKeySequence::New);
     actionwhatever->setStatusTip("whetever");
     actionwhatever->setCheckable(true);
-    if (actionwhatever->isChecked()){
-    }
-    else{
-        connect(actionwhatever,SIGNAL(triggered(bool)),this,SLOT(whatever()));
-    }
+
+    connect(actionwhatever,SIGNAL(toggled(bool)),this,SLOT(whatever(actionwhatever)));
 
 
     fileMenu = menuBar()->addMenu(tr("&File"));
@@ -127,7 +124,12 @@ MainWindow::~MainWindow()
 {
     delete ui;
 }
-void MainWindow::whatever()
+void MainWindow::whatever(QAction *someaction)
 {
-    ui->textEdit->insertPlainText("\n WHATEVER");
+    if (someaction->isChecked()){
+        ui->textEdit->insertPlainText("\n WHATEVER");
+    }
+    else{
+        ui->textEdit->insertPlainText("\n FUCK");
+    }
 }
